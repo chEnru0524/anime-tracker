@@ -56,7 +56,7 @@ git push -u origin main
 
 Vite 使用 `base: './'`，資源路徑自動相對於網站目錄，因此同時適用 `https://user.github.io/` 與 `https://user.github.io/repository/`，不需要手動改 repository 名稱。全部頁面使用 `#` 後面的路由，因此不依賴 404 redirect 或後端 rewrite。
 
-此交付包含完整的自動部署設定，**尚未推送到你的 GitHub，也未建立公開 Pages 網址**；目前未提供 GitHub repository 或登入資訊。GitHub Actions 僅使用平台自動產生的短期 `GITHUB_TOKEN`／OIDC，沒有寫入任何個人 Token。
+部署 Repository：[chEnru0524/anime-tracker](https://github.com/chEnru0524/anime-tracker)。網站入口：[夜番 YORU](https://chenru0524.github.io/anime-tracker/)（首次 Actions 部署完成後生效）。Repository 已設定為公開，Pages 來源使用 GitHub Actions；後續更新 `main` 即自動重新部署。GitHub Actions 僅使用平台自動產生的短期 `GITHUB_TOKEN`／OIDC，沒有寫入任何個人 Token。
 
 ## 功能與操作
 

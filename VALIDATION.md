@@ -28,7 +28,7 @@
 
 - 已檢查 GitHub Actions 權限、Node、lockfile、測試、build、Pages artifact 與 deploy dependency。
 - 已在嚴格靜態伺服器上驗證 project base path 與 Hash Router，沒有依賴 SPA server fallback。
-- **尚未在實際 GitHub repository 執行 Actions 或對外發佈**，因未提供目標 repository。
+- 已上傳至 [chEnru0524/anime-tracker](https://github.com/chEnru0524/anime-tracker)。實際 GitHub Actions 的 7 項測試與 Vite 建置通過；第一次工作流程因 Pages 尚未啟用而停止，之後已依使用者確認改為公開並設定 Pages 使用 GitHub Actions。最新發佈結果請見 [Actions](https://github.com/chEnru0524/anime-tracker/actions)。
 - OpenCC 的繁體字典獨立延遲載入（約 466KB gzip）；建置仍有字典大於 500KB 的提示，以及 Zod 上游註解被 Rollup 移除的提示。均不影響成功建置。
 - API 缺失的中文名稱、播出日期與台灣串流授權無法保證完整。Jikan 失效且無快取時，未定日期的未來動畫不包含於 Bangumi 日期備援結果。
 - WebMCP 為可選漸進增強，環境未提供原生可驗證的 WebMCP context；一般瀏覽器完整 UI 流程已驗證。
