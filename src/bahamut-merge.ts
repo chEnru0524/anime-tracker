@@ -1,4 +1,4 @@
-import { type RecordEntry, recordSchema } from "./model";
+import { type RecordEntry, recordSchema, newRecord } from "./model";
 import { type WatchEvent, type Binding } from "./bahamut-schema";
 export function matchingBinding(event: WatchEvent, bindings: Binding[]) {
   const matches = bindings.filter(
@@ -9,6 +9,34 @@ export function matchingBinding(event: WatchEvent, bindings: Binding[]) {
       event.episode <= b.to,
   );
   return matches.length === 1 ? matches[0] : undefined;
+}
+export function bahamutRecord(event: WatchEvent): RecordEntry {
+  const id = 2_000_000_000_000 + Number(event.seriesId);
+  if (!Number.isSafeInteger(id) || Number(event.seriesId) >= 1_000_000_000_000)
+    throw new Error("無法識別動畫瘋作品編號");
+  return newRecord(
+    {
+      id,
+      bahamutSeriesId: event.seriesId,
+      title: event.title,
+      zh: event.title,
+      ja: "",
+      aliases: [],
+      cover: "",
+      summary: "由動畫瘋觀看紀錄建立；封面、季度與總集數尚未補充。",
+      genres: [],
+      episodes: null,
+      year: null,
+      season: null,
+      start: null,
+      end: null,
+      airing: "unknown",
+      format: "未定",
+      platforms: [],
+      detail: true,
+    },
+    "watching",
+  );
 }
 export function mergeWatch(
   record: RecordEntry,
@@ -32,16 +60,16 @@ export function mergeWatch(
     : !record.lastWatched || event.watchedAt > record.lastWatched
       ? event.watchedAt
       : record.lastWatched;
-  const list = [...(record.customPlatforms ?? record.anime.platforms)];
-  if (!list.some((p) => p.name === "巴哈姆特動畫瘋"))
-    list.push({
+  const list = [
+    {
       name: "巴哈姆特動畫瘋",
       url: event.videoId
         ? `https://ani.gamer.com.tw/animeVideo.php?sn=${event.videoId}`
         : "https://ani.gamer.com.tw/",
       region: "台灣",
-      source: "manual",
-    });
+      source: "manual" as const,
+    },
+  ];
   return recordSchema.parse({
     ...record,
     progress,

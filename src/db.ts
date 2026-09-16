@@ -2,6 +2,10 @@ import { openDB, type DBSchema } from "idb";
 import { emptySyncState, type SyncState } from "./bahamut-schema";
 import {
   backupSchema,
+  newRecord,
+  recordSchema,
+  type Anime,
+  type Status,
   type Backup,
   type RecordEntry,
   type Settings,
@@ -29,7 +33,43 @@ export async function saveRecord(r: RecordEntry) {
   return (await db).put("records", r);
 }
 export async function deleteRecord(id: number) {
-  return (await db).delete("records", id);
+  return deleteRecords([id]);
+}
+export async function addRecords(anime: Anime[], status: Status) {
+  const drafts = anime.map((a) => recordSchema.parse(newRecord(a, status)));
+  const tx = (await db).transaction("records", "readwrite");
+  const existing = await tx.store.getAll();
+  for (const draft of drafts) {
+    if (
+      existing.some(
+        (r) =>
+          r.anime.id === draft.anime.id ||
+          (draft.anime.ja &&
+            r.anime.ja === draft.anime.ja &&
+            r.anime.year === draft.anime.year),
+      )
+    )
+      continue;
+    await tx.store.put(draft);
+    existing.push(draft);
+  }
+  await tx.done;
+}
+export async function deleteRecords(ids: number[]) {
+  const tx = (await db).transaction(["records", "bahamut"], "readwrite");
+  const state =
+    (await tx.objectStore("bahamut").get("state")) ?? emptySyncState();
+  const excluded = new Set(state.excludedSeries ?? []);
+  for (const id of ids) {
+    const r = await tx.objectStore("records").get(id);
+    if (r?.anime.bahamutSeriesId) excluded.add(r.anime.bahamutSeriesId);
+    for (const b of state.bindings.filter((b) => b.animeId === id))
+      excluded.add(b.seriesId);
+    await tx.objectStore("records").delete(id);
+  }
+  state.excludedSeries = [...excluded];
+  await tx.objectStore("bahamut").put(state, "state");
+  await tx.done;
 }
 export async function readSettings() {
   return (await db)

@@ -1820,6 +1820,28 @@ footer > span:first-child {
     padding-inline: 4px;
   }
 }
+.bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+.bulk-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+}
+.bulk-choice input {
+  width: auto;
+}
+.bulk-card {
+  min-width: 0;
+}
+.bulk-card .anime-card {
+  height: calc(100% - 40px);
+}
 .page-error {
   flex-basis: 100%;
   text-align: center;

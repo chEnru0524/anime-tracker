@@ -13,6 +13,7 @@ import {
   type Season,
 } from "./model";
 import { useStore } from "./store";
+import { BulkCatalog } from "./bulk";
 import { formats, genres, validPage, type CatalogFilters } from "./catalog";
 export { Detail } from "./detail";
 export { Stats, BackupPage } from "./settings";
@@ -363,11 +364,7 @@ export function Catalog({
         <Loading />
       ) : data.items.length ? (
         <>
-          <div className="anime-grid">
-            {data.items.map((a) => (
-              <AnimeCard key={a.id} anime={a} />
-            ))}
-          </div>
+          <BulkCatalog items={data.items} />
         </>
       ) : (
         !error && <Empty heading="目前沒有符合條件的動畫" action={false} />
@@ -486,6 +483,7 @@ function Pagination({
   );
 }
 export function LibraryPage() {
+  const [selected, setSelected] = useState<number[]>([]);
   const s = useStore(),
     [params, setParams] = useSearchParams(),
     [q, setQ] = useState(""),
@@ -614,10 +612,57 @@ export function LibraryPage() {
         </label>
       </div>
       <p className="results-heading">共 {filtered.length} 部動畫</p>
+      <div className="bulk-bar">
+        <button
+          disabled={s.busy}
+          onClick={() => setSelected(filtered.map((r) => r.anime.id))}
+        >
+          選取篩選結果
+        </button>
+        <button onClick={() => setSelected([])}>取消選取</button>
+        <span>
+          已選 {filtered.filter((r) => selected.includes(r.anime.id)).length} 部
+        </span>
+        <button
+          disabled={
+            s.busy || !filtered.some((r) => selected.includes(r.anime.id))
+          }
+          onClick={async () => {
+            const ids = filtered
+              .filter((r) => selected.includes(r.anime.id))
+              .map((r) => r.anime.id);
+            if (
+              window.confirm(
+                `確定移除選取的 ${ids.length} 部動畫及其觀看紀錄？巴哈作品將停止自動重新加入，可從待確認紀錄再次匯入。建議先匯出備份。`,
+              ) &&
+              (await s.removeMany(ids))
+            )
+              setSelected([]);
+          }}
+        >
+          移除選取動畫
+        </button>
+      </div>
       {filtered.length ? (
         <div className="anime-grid">
           {filtered.map((r) => (
             <div key={r.anime.id} className="library-card">
+              <label className="bulk-choice">
+                <input
+                  type="checkbox"
+                  aria-label={`選取 ${title(r.anime)}`}
+                  disabled={s.busy}
+                  checked={selected.includes(r.anime.id)}
+                  onChange={(e) =>
+                    setSelected(
+                      e.target.checked
+                        ? [...selected, r.anime.id]
+                        : selected.filter((id) => id !== r.anime.id),
+                    )
+                  }
+                />
+                選取
+              </label>
               <AnimeCard anime={r.anime} record={r} />
               <div className="library-status">
                 <span>{statuses[r.status]}</span>

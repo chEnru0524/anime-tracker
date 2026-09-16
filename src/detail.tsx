@@ -39,6 +39,10 @@ export function Detail() {
     setAnime(record?.anime ?? location.state?.anime);
     setLoading(true);
     setError("");
+    if (record?.anime.bahamutSeriesId) {
+      setLoading(false);
+      return;
+    }
     if (!/^\d+$/.test(id ?? "") || Number(id) <= 0) {
       setError("無效的動畫編號");
       setLoading(false);
@@ -91,11 +95,19 @@ export function Detail() {
           <Cover anime={a} />
           <a
             className="source-link"
-            href={`${a.id >= 1000000000 ? "https://bgm.tv/subject/" + (a.id - 1000000000) : "https://myanimelist.net/anime/" + a.id}`}
+            href={
+              a.bahamutSeriesId
+                ? known[0]?.url || "https://ani.gamer.com.tw/"
+                : `${a.id >= 1000000000 ? "https://bgm.tv/subject/" + (a.id - 1000000000) : "https://myanimelist.net/anime/" + a.id}`
+            }
             target="_blank"
             rel="noreferrer"
           >
-            {a.id >= 1000000000 ? "Bangumi" : "MyAnimeList"}{" "}
+            {a.bahamutSeriesId
+              ? "巴哈姆特動畫瘋"
+              : a.id >= 1000000000
+                ? "Bangumi"
+                : "MyAnimeList"}{" "}
             <ExternalLink size={14} />
           </a>
         </aside>

@@ -28,6 +28,8 @@ type Store = {
   add: (a: Anime, s: Status) => Promise<void>;
   save: (r: RecordEntry) => Promise<boolean>;
   remove: (id: number) => Promise<void>;
+  addMany: (anime: Anime[], status: Status) => Promise<boolean>;
+  removeMany: (ids: number[]) => Promise<boolean>;
   adjust: (id: number, delta: number) => Promise<void>;
   setSettings: (s: Settings) => Promise<void>;
 };
@@ -154,6 +156,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         clearNotice: () => setNotice(""),
         reload,
         add,
+        addMany: (anime, status) =>
+          mutate(
+            () => db.addRecords(anime, status),
+            "已批次加入收藏（略過已收藏作品）",
+          ),
+        removeMany: (ids) =>
+          mutate(() => db.deleteRecords(ids), "已批次移除收藏"),
         save,
         adjust,
         remove: async (id) => {

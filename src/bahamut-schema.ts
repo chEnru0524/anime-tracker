@@ -38,11 +38,12 @@ export const bindingSchema = z
     "集數範圍或偏移不正確",
   );
 export const syncStateSchema = z.object({
+  excludedSeries: z.array(z.string()).max(20000).optional(),
   pending: z.array(watchEventSchema).max(10000),
   applied: z.array(z.string().max(180)).max(20000),
   bindings: z.array(bindingSchema).max(2000),
 });
-export const emptySyncState = () => ({
+export const emptySyncState = (): SyncState => ({
   pending: [],
   applied: [],
   bindings: [],

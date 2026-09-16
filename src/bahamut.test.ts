@@ -12,7 +12,13 @@ import {
   displayWatchDate,
 } from "./bahamut-dom";
 import { mergeWatch } from "./bahamut-merge";
-import { restoreBackup, readLibrary, makeBackup } from "./db";
+import {
+  restoreBackup,
+  readLibrary,
+  makeBackup,
+  addRecords,
+  deleteRecords,
+} from "./db";
 import {
   receiveEvents,
   saveBinding,
@@ -96,15 +102,60 @@ describe("safe progress merge", () => {
     expect((await readLibrary())[0].lastWatched).toBe(event.watchedAt);
     expect((await readSync()).applied).toEqual([event.id, "older"]);
   });
-  it("keeps unmapped and history records in a durable inbox before acknowledgement", async () => {
+  it("auto-adds unmapped live records by source ID but keeps history for confirmation", async () => {
     expect(await receiveEvents([event])).toEqual([event.id]);
-    expect((await readSync()).pending).toHaveLength(1);
+    expect((await readSync()).pending).toHaveLength(0);
+    const added = (await readLibrary()).find(
+      (r) => r.anime.bahamutSeriesId === "123",
+    )!;
+    expect(added.progress).toBe(8);
+    expect(added.customPlatforms?.map((p) => p.name)).toEqual([
+      "巴哈姆特動畫瘋",
+    ]);
+    await receiveEvents([{ ...event, id: "again", episode: 9 }]);
+    expect(await readLibrary()).toHaveLength(2);
     expect((await readLibrary())[0].progress).toBe(5);
     await saveBinding(binding);
     await receiveEvents([
       { ...event, id: "history:x", kind: "history", evidence: "site-history" },
     ]);
     expect((await readLibrary())[0].progress).toBe(5);
+  });
+  it("confirms history directly, replaces platforms, and respects removed auto-added records", async () => {
+    await receiveEvents([
+      { ...event, kind: "history", evidence: "site-history" },
+    ]);
+    expect(await readLibrary()).toHaveLength(1);
+    await reviewEvent(event.id, "apply", undefined, undefined, true);
+    const r = (await readLibrary()).find((r) => r.anime.bahamutSeriesId)!;
+    expect(r.lastWatched).toBe(event.watchedAt);
+    await deleteRecords([r.anime.id]);
+    await receiveEvents([{ ...event, id: "after-delete" }]);
+    expect(await readLibrary()).toHaveLength(1);
+    expect((await readSync()).pending).toHaveLength(1);
+    const merged = mergeWatch(
+      {
+        ...newRecord(anime, "watching"),
+        customPlatforms: [
+          { name: "Netflix", url: "", region: "台灣", source: "manual" },
+        ],
+      },
+      event,
+      binding,
+    );
+    expect(merged.customPlatforms?.map((p) => p.name)).toEqual([
+      "巴哈姆特動畫瘋",
+    ]);
+  });
+  it("adds and removes batches without overwriting existing progress", async () => {
+    await addRecords(
+      [anime, { ...anime, id: 2, ja: "B" }, { ...anime, id: 2, ja: "B" }],
+      "planned",
+    );
+    expect(await readLibrary()).toHaveLength(2);
+    expect((await readLibrary())[0].progress).toBe(5);
+    await deleteRecords([1, 2]);
+    expect(await readLibrary()).toHaveLength(0);
   });
   it("supports season offsets and leaves out-of-range events for review", async () => {
     await saveBinding({ ...binding, from: 73, to: 84, offset: -72 });

@@ -38,6 +38,7 @@ export const platformSchema = z.object({
   source: z.enum(["api", "manual"]),
 });
 export const animeSchema = z.object({
+  bahamutSeriesId: z.string().regex(/^\d+$/).optional(),
   id: z.number().int().positive(),
   title: z.string().min(1).max(500),
   zh: z.string().max(500),

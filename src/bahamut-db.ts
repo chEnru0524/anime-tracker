@@ -7,7 +7,7 @@ import {
   type WatchEvent,
   type Binding,
 } from "./bahamut-schema";
-import { matchingBinding, mergeWatch } from "./bahamut-merge";
+import { matchingBinding, mergeWatch, bahamutRecord } from "./bahamut-merge";
 export async function readSync() {
   return (await (await db).get("bahamut", "state")) ?? emptySyncState();
 }
@@ -32,12 +32,32 @@ export async function receiveEvents(input: unknown) {
     )
       continue;
     const binding = matchingBinding(event, state.bindings);
-    const record =
+    let record =
       binding && (await tx.objectStore("records").get(binding.animeId));
+    if (
+      !binding &&
+      !state.excludedSeries?.includes(event.seriesId) &&
+      !state.bindings.some((b) => b.seriesId === event.seriesId) &&
+      event.kind === "live" &&
+      event.episode !== null
+    ) {
+      const draft = bahamutRecord(event);
+      record = (await tx.objectStore("records").get(draft.anime.id)) ?? draft;
+    }
     let saved = false;
-    if (event.kind === "live" && binding && record) {
+    if (event.kind === "live" && record) {
       try {
-        const merged = mergeWatch(record, event, binding);
+        const merged = mergeWatch(
+          record,
+          event,
+          binding ?? {
+            seriesId: event.seriesId,
+            animeId: record.anime.id,
+            from: 1,
+            to: 100000,
+            offset: 0,
+          },
+        );
         await tx.objectStore("records").put(merged);
         state.applied.push(event.id);
         saved = true;
@@ -105,6 +125,7 @@ export async function reviewEvent(
   action: "apply" | "dismiss",
   animeId?: number,
   episode?: number,
+  autoAdd = false,
 ) {
   const tx = (await db).transaction(["bahamut", "records"], "readwrite");
   const s = (await tx.objectStore("bahamut").get("state")) ?? emptySyncState();
@@ -116,7 +137,18 @@ export async function reviewEvent(
   if (action === "apply") {
     const b = matchingBinding(event, s.bindings);
     const selected = animeId ?? b?.animeId;
-    const record = selected && (await tx.objectStore("records").get(selected));
+    let record = selected
+      ? await tx.objectStore("records").get(selected)
+      : undefined;
+    if (
+      !record &&
+      autoAdd &&
+      !selected &&
+      !s.bindings.some((b) => b.seriesId === event.seriesId)
+    ) {
+      const draft = bahamutRecord(event);
+      record = (await tx.objectStore("records").get(draft.anime.id)) ?? draft;
+    }
     if (!record) {
       tx.abort();
       await tx.done.catch(() => {});
@@ -142,6 +174,7 @@ export async function reviewEvent(
       throw e;
     }
     await tx.objectStore("records").put(updated);
+    s.excludedSeries = s.excludedSeries?.filter((id) => id !== event.seriesId);
   }
   s.pending = s.pending.filter((e) => e.id !== id);
   s.applied = [...s.applied, id].slice(-20000);

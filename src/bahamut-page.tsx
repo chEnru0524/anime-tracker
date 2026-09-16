@@ -18,6 +18,7 @@ import { matchingBinding } from "./bahamut-merge";
 import { connectionStatus, extensionRequest, syncNow } from "./bahamut-client";
 import "./bahamut.css";
 export function BahamutPage() {
+  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const s = useStore();
   const [id, setId] = useState(s.settings.bahamut?.extensionId ?? ""),
     [state, setState] = useState<SyncState>(emptySyncState),
@@ -155,9 +156,8 @@ export function BahamutPage() {
       <section className="panel">
         <h2>首次匯入與待確認紀錄（{state.pending.length}）</h2>
         <p>
-          在動畫瘋觀看紀錄頁，點擴充功能的「讀取動畫瘋觀看紀錄」。先將對應作品加入
-          <Link to="/library">我的動畫</Link>
-          ，再確認下方配對。名稱只協助辨識，不會自動硬配對。
+          日後達標觀看會依動畫瘋作品 ID
+          自動加入我的動畫，觀看平台設為巴哈姆特動畫瘋。首次匯入可勾選多筆確認加入，不必先建立收藏。已有季度配對則沿用配對；未配對作品先保留巴哈原始資料，不依名稱猜測季度。
         </p>
         <p>
           首次匯入是網站目前保留的最近觀看快照，不是完整終身紀錄；「觀看結束」沿用動畫瘋判定。未達門檻、特別篇與跨季連續編號需你確認。觀看時間不明時保留原時間。
@@ -179,13 +179,90 @@ export function BahamutPage() {
             匯入已配對且達門檻的 {eligible.length} 筆紀錄
           </button>
         )}
+        <div className="bulk-bar">
+          <button
+            disabled={busy}
+            onClick={() =>
+              setSelectedEvents(
+                state.pending
+                  .filter(
+                    (e) =>
+                      e.episode !== null &&
+                      e.ratio !== null &&
+                      e.ratio * 100 >= e.threshold &&
+                      (matchingBinding(e, state.bindings) ||
+                        !state.bindings.some((b) => b.seriesId === e.seriesId)),
+                  )
+                  .map((e) => e.id),
+              )
+            }
+          >
+            選取可直接匯入紀錄
+          </button>
+          <button onClick={() => setSelectedEvents([])}>取消選取</button>
+          <button
+            disabled={
+              busy || !state.pending.some((e) => selectedEvents.includes(e.id))
+            }
+            onClick={() => {
+              const events = state.pending.filter((e) =>
+                selectedEvents.includes(e.id),
+              );
+              if (
+                window.confirm(
+                  `確認加入／更新 ${events.length} 筆紀錄？未配對作品依巴哈作品 ID 建立收藏，觀看平台設定為巴哈。`,
+                )
+              )
+                void run(async () => {
+                  for (const e of events)
+                    await reviewEvent(
+                      e.id,
+                      "apply",
+                      undefined,
+                      undefined,
+                      true,
+                    );
+                  setSelectedEvents([]);
+                });
+            }}
+          >
+            批次加入我的動畫（
+            {state.pending.filter((e) => selectedEvents.includes(e.id)).length}
+            ）
+          </button>
+        </div>
         {!state.pending.length && (
           <p className="muted">
             目前沒有待處理紀錄。已配對的日後觀看會自動更新。
           </p>
         )}
         {state.pending.slice(0, 100).map((e) => (
-          <EventRow key={e.id} event={e} state={state} busy={busy} run={run} />
+          <div key={e.id}>
+            <label className="bulk-choice">
+              <input
+                type="checkbox"
+                aria-label={`選取紀錄 ${e.title} ${e.episodeLabel}`}
+                disabled={
+                  busy ||
+                  e.episode === null ||
+                  e.ratio === null ||
+                  e.ratio * 100 < e.threshold ||
+                  (!matchingBinding(e, state.bindings) &&
+                    state.bindings.some((b) => b.seriesId === e.seriesId))
+                }
+                checked={selectedEvents.includes(e.id)}
+                onChange={(ev) =>
+                  setSelectedEvents(
+                    ev.target.checked
+                      ? [...selectedEvents, e.id]
+                      : selectedEvents.filter((id) => id !== e.id),
+                  )
+                }
+              />
+              選取匯入
+            </label>
+            <EventRow event={e} state={state} busy={busy} run={run} />
+          </div>
         ))}
         {state.pending.length > 100 && (
           <p>先顯示前 100 筆，處理後會顯示下一批。</p>
@@ -339,6 +416,23 @@ function EventRow({
         </label>
       )}
       <div className="action-row">
+        {!binding && !state.bindings.some((b) => b.seriesId === e.seriesId) && (
+          <button
+            disabled={busy || !episode || (uncertain && !confirmed)}
+            onClick={() => {
+              if (
+                e.kind === "history" &&
+                !window.confirm("確認依巴哈作品 ID 新增收藏並匯入此筆紀錄？")
+              )
+                return;
+              void run(() =>
+                reviewEvent(e.id, "apply", undefined, Number(episode), true),
+              );
+            }}
+          >
+            直接加入我的動畫
+          </button>
+        )}
         <button
           disabled={busy || !selected || !episode || (uncertain && !confirmed)}
           onClick={() => {
