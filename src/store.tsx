@@ -30,6 +30,7 @@ type Store = {
   remove: (id: number) => Promise<void>;
   addMany: (anime: Anime[], status: Status) => Promise<boolean>;
   removeMany: (ids: number[]) => Promise<boolean>;
+  setStatusMany: (ids: number[], status: Status) => Promise<boolean>;
   adjust: (id: number, delta: number) => Promise<void>;
   setSettings: (s: Settings) => Promise<void>;
 };
@@ -163,6 +164,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ),
         removeMany: (ids) =>
           mutate(() => db.deleteRecords(ids), "已批次移除收藏"),
+        setStatusMany: (ids, status) =>
+          mutate(
+            () => db.updateStatuses(ids, status),
+            "已更新選取動畫的觀看狀態",
+          ),
         save,
         adjust,
         remove: async (id) => {

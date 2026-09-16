@@ -71,6 +71,36 @@ export async function deleteRecords(ids: number[]) {
   await tx.objectStore("bahamut").put(state, "state");
   await tx.done;
 }
+export async function updateStatuses(ids: number[], status: Status) {
+  // Read the latest progress inside one transaction, including concurrent sync changes.
+  const tx = (await db).transaction("records", "readwrite");
+  const at = new Date().toISOString();
+  try {
+    for (const id of new Set(ids)) {
+      const record = await tx.store.get(id);
+      if (!record) continue;
+      await tx.store.put(
+        recordSchema.parse({
+          ...record,
+          status,
+          progress:
+            status === "completed"
+              ? (record.anime.episodes ?? record.progress)
+              : record.progress,
+          completedAt:
+            status === "completed" ? (record.completedAt ?? at) : null,
+        }),
+      );
+    }
+    await tx.done;
+  } catch (e) {
+    try {
+      tx.abort();
+    } catch {}
+    await tx.done.catch(() => {});
+    throw e;
+  }
+}
 export async function readSettings() {
   return (await db)
     .get("settings", "preferences")

@@ -14,6 +14,8 @@ import {
 } from "./model";
 import { useStore } from "./store";
 import { BulkCatalog } from "./bulk";
+import { matchesPeriod } from "./library-period";
+import type { Status } from "./model";
 import { formats, genres, validPage, type CatalogFilters } from "./catalog";
 export { Detail } from "./detail";
 export { Stats, BackupPage } from "./settings";
@@ -484,6 +486,7 @@ function Pagination({
 }
 export function LibraryPage() {
   const [selected, setSelected] = useState<number[]>([]);
+  const [targetStatus, setTargetStatus] = useState<Status>("completed");
   const s = useStore(),
     [params, setParams] = useSearchParams(),
     [q, setQ] = useState(""),
@@ -491,7 +494,9 @@ export function LibraryPage() {
     [sort, setSort] = useState("recent");
   const status = params.get("status") ?? "",
     year = params.get("year") ?? "",
-    season = params.get("season") ?? "";
+    season = params.get("season") ?? "",
+    period = params.get("period") ?? "";
+  useEffect(() => setSelected([]), [status, year, season, period, q, platform]);
   function filter(k: string, v: string) {
     const p = new URLSearchParams(params);
     v ? p.set(k, v) : p.delete(k);
@@ -510,6 +515,7 @@ export function LibraryPage() {
         (!status || r.status === status) &&
         (!year || String(r.anime.year) === year) &&
         (!season || r.anime.season === season) &&
+        matchesPeriod(r.anime, period) &&
         (!q ||
           [title(r.anime), r.anime.ja, r.anime.title, ...r.anime.aliases]
             .join(" ")
@@ -566,6 +572,22 @@ export function LibraryPage() {
           />
         </label>
         <label>
+          新舊番範圍
+          <select
+            aria-label="新舊番範圍"
+            value={period}
+            onChange={(e) => filter("period", e.target.value)}
+          >
+            <option value="">全部動畫</option>
+            <option value="older-season">本季以前（舊番，不含未來新番）</option>
+            <option value="older-year">今年以前</option>
+            <option value="not-year">非今年（含未來年份）</option>
+            <option value="not-season">非本季（含未來季度）</option>
+            <option value="current">本季新番</option>
+            <option value="unknown">年份／季度未定</option>
+          </select>
+        </label>
+        <label>
           年份
           <select value={year} onChange={(e) => filter("year", e.target.value)}>
             <option value="">所有年份</option>
@@ -612,6 +634,11 @@ export function LibraryPage() {
         </label>
       </div>
       <p className="results-heading">共 {filtered.length} 部動畫</p>
+      <p className="muted">
+        以首播年份／季度判斷，目前為 {currentSeason().year}{" "}
+        {seasons[currentSeason().season]}
+        。整理舊番可選「本季以前」；日期未定的巴哈收藏請用「年份／季度未定」另外整理。
+      </p>
       <div className="bulk-bar">
         <button
           disabled={s.busy}
@@ -623,6 +650,44 @@ export function LibraryPage() {
         <span>
           已選 {filtered.filter((r) => selected.includes(r.anime.id)).length} 部
         </span>
+        <label>
+          改為
+          <select
+            aria-label="批次觀看狀態"
+            value={targetStatus}
+            disabled={s.busy}
+            onChange={(e) => setTargetStatus(e.target.value as Status)}
+          >
+            {Object.entries(statuses).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          disabled={
+            s.busy || !filtered.some((r) => selected.includes(r.anime.id))
+          }
+          onClick={async () => {
+            const ids = filtered
+              .filter((r) => selected.includes(r.anime.id))
+              .map((r) => r.anime.id);
+            const effect =
+              targetStatus === "completed"
+                ? "已知總集數會設為看完；總集數未定則保留進度，未有完成日期者記為今天。"
+                : "保留觀看進度，清除完成日期。";
+            if (
+              window.confirm(
+                `將選取的 ${ids.length} 部動畫改為「${statuses[targetStatus]}」？${effect}評分、備註及最近觀看時間不變。`,
+              ) &&
+              (await s.setStatusMany(ids, targetStatus))
+            )
+              setSelected([]);
+          }}
+        >
+          套用觀看狀態
+        </button>
         <button
           disabled={
             s.busy || !filtered.some((r) => selected.includes(r.anime.id))

@@ -10,7 +10,13 @@ import {
   type Anime,
   type Backup,
 } from "./model";
-import { restoreBackup, makeBackup, saveRecord, readLibrary } from "./db";
+import {
+  restoreBackup,
+  makeBackup,
+  saveRecord,
+  readLibrary,
+  updateStatuses,
+} from "./db";
 const anime: Anime = {
   id: 1,
   title: "Test",
@@ -69,6 +75,39 @@ describe("progress and seasons", () => {
   });
 });
 describe("backup validation and transactional persistence", () => {
+  it("batch status changes preserve metadata and do not invent watch timestamps", async () => {
+    const original = {
+      ...newRecord(anime, "watching"),
+      progress: 4,
+      rating: 9,
+      notes: "keep",
+      lastWatched: "2020-01-01T00:00:00.000Z",
+    };
+    await saveRecord(original);
+    await updateStatuses([anime.id], "completed");
+    const done = (await readLibrary())[0];
+    expect(done.progress).toBe(12);
+    expect(done.completedAt).not.toBeNull();
+    expect(done.lastWatched).toBe(original.lastWatched);
+    expect(done.rating).toBe(9);
+    expect(done.notes).toBe("keep");
+    await updateStatuses([anime.id], "completed");
+    expect((await readLibrary())[0].completedAt).toBe(done.completedAt);
+    for (const status of [
+      "planned",
+      "watching",
+      "paused",
+      "dropped",
+    ] as const) {
+      await updateStatuses([anime.id], status);
+      expect((await readLibrary())[0]).toMatchObject({
+        status,
+        progress: 12,
+        completedAt: null,
+        lastWatched: original.lastWatched,
+      });
+    }
+  });
   beforeEach(async () => {
     await restoreBackup({ ...backup(), records: [] });
   });
