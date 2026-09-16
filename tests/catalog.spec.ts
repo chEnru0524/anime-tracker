@@ -77,5 +77,5 @@ test("Bangumi fallback total and jump use twenty-item offsets", async ({
   await expect(page.getByLabel("目前頁碼")).toHaveText("第 1 / 3 頁");
   await page.getByRole("button", { name: "末頁", exact: true }).click();
   await expect(page.getByLabel("目前頁碼")).toHaveText("第 3 / 3 頁");
-  expect(offsets).toEqual([0, 40]);
+  await expect.poll(() => offsets).toEqual([0, 40]);
 });
