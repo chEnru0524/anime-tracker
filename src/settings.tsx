@@ -276,7 +276,9 @@ export function BackupPage() {
           <select
             aria-label="優先觀看地區"
             value={s.settings.region}
-            onChange={(e) => void s.setSettings({ region: e.target.value })}
+            onChange={(e) =>
+              void s.setSettings({ ...s.settings, region: e.target.value })
+            }
           >
             <option>台灣</option>
             <option>香港</option>

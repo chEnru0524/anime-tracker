@@ -1,4 +1,6 @@
 import { registerLibraryTool } from "./webmcp";
+import { BahamutSync } from "./bahamut-client";
+import { BahamutPage } from "./bahamut-page";
 import { useEffect, useState } from "react";
 import {
   NavLink,
@@ -47,6 +49,7 @@ export default function App() {
   }, [location.pathname]);
   return (
     <div className="app">
+      <BahamutSync />
       <aside className="sidebar">
         <Link className="brand" to="/">
           <span className="brand-icon">
@@ -67,6 +70,10 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
+          <NavLink to="/sync">
+            <Play size={19} />
+            動畫瘋同步
+          </NavLink>
           <NavLink to="/backup">
             <Database size={19} />
             資料與備份
@@ -122,12 +129,14 @@ export default function App() {
               <Route path="/anime/:id" element={<Detail />} />
               <Route path="/stats" element={<Stats />} />
               <Route path="/backup" element={<BackupPage />} />
+              <Route path="/sync" element={<BahamutPage />} />
               <Route path="*" element={<Empty heading="找不到這個頁面" />} />
             </Routes>
           )}
         </main>
         <footer>
           <span>夜番 YORU</span>
+          <Link to="/sync">動畫瘋同步</Link>
           <span>
             動畫資料：
             <a href="https://jikan.moe" target="_blank" rel="noreferrer">

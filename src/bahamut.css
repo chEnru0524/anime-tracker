@@ -1,0 +1,85 @@
+.bahamut-sync .panel {
+  margin-bottom: 24px;
+}
+.bahamut-sync p {
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.bahamut-sync label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin: 14px 0;
+}
+.bahamut-sync label:has(input[type="checkbox"]) {
+  flex-direction: row;
+  align-items: flex-start;
+}
+.bahamut-sync input,
+.bahamut-sync select {
+  min-width: 0;
+  max-width: 100%;
+}
+.bahamut-sync input:not([type="checkbox"]),
+.bahamut-sync select {
+  padding: 10px;
+  border: 1px solid #364251;
+  border-radius: 8px;
+  background: #171e28;
+  color: #e6edf5;
+}
+.bahamut-sync .action-row {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.sync-event {
+  border-top: 1px solid #303b48;
+  padding: 24px 0;
+}
+.sync-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.sync-fields label {
+  flex: 1 1 160px;
+}
+.sync-fields select {
+  width: 100%;
+}
+.sync-event details {
+  margin-top: 18px;
+}
+.sync-event summary {
+  cursor: pointer;
+}
+.sync-binding {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 0;
+  border-bottom: 1px solid #303b48;
+}
+.sync-binding span {
+  overflow-wrap: anywhere;
+}
+.bahamut-sync a {
+  color: #a8e3c0;
+  text-decoration: underline;
+}
+.bahamut-sync h3 {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .sync-fields {
+    display: block;
+  }
+  .sync-binding {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .bahamut-sync .panel {
+    padding: 18px;
+  }
+}

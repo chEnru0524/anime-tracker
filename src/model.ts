@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { syncStateSchema } from "./bahamut-schema";
 export const statuses = {
   watching: "觀看中",
   planned: "想看",
@@ -72,7 +73,15 @@ export const recordSchema = z
     (r) => r.anime.episodes === null || r.progress <= r.anime.episodes,
     "觀看集數超過總集數",
   );
-export const settingsSchema = z.object({ region: z.string().min(1).max(100) });
+export const settingsSchema = z.object({
+  region: z.string().min(1).max(100),
+  bahamut: z
+    .object({
+      extensionId: z.string().regex(/^[a-p]{32}$/),
+      enabled: z.boolean(),
+    })
+    .optional(),
+});
 export const backupSchema = z
   .object({
     app: z.literal("yoru"),
@@ -80,6 +89,7 @@ export const backupSchema = z
     exportedAt: date,
     records: z.array(recordSchema).max(20000),
     settings: settingsSchema,
+    bahamut: syncStateSchema.optional(),
   })
   .refine(
     (b) => new Set(b.records.map((r) => r.anime.id)).size === b.records.length,
