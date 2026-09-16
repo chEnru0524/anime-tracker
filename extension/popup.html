@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <title>夜番動畫瘋同步</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <h1>夜番 · 動畫瘋同步</h1>
+    <p>
+      觀看資料只在此瀏覽器保存。啟用後允許傳送至你的夜番網站；不讀取登入憑證。
+    </p>
+    <label><input type="checkbox" id="enabled" />啟用偵測與同步</label>
+    <label
+      >單集完成門檻（%）<input
+        id="threshold"
+        type="number"
+        min="1"
+        max="100"
+        step="1"
+        value="80"
+    /></label>
+    <button id="save">儲存設定</button>
+    <p id="status" role="status"></p>
+    <h2>首次匯入</h2>
+    <p>
+      先開啟動畫瘋「觀看紀錄」，再按下方按鈕。會載入更多紀錄，送到夜番預覽，不會立即改寫收藏。
+    </p>
+    <button id="import">讀取動畫瘋觀看紀錄</button>
+    <h2>連接夜番</h2>
+    <p>將以下擴充功能 ID 貼到夜番的「動畫瘋同步」頁面。</p>
+    <input id="extension-id" readonly aria-label="擴充功能 ID" /><button
+      id="open"
+    >
+      開啟夜番同步頁
+    </button>
+    <p id="result" role="status"></p>
+    <script src="popup.js"></script>
+  </body>
+</html>

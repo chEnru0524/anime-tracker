@@ -1,0 +1,46 @@
+body {
+  width: 330px;
+  margin: 0;
+  padding: 20px;
+  background: #141920;
+  color: #e9edf2;
+  font: 14px/1.6 system-ui;
+}
+h1 {
+  font-size: 21px;
+}
+h2 {
+  font-size: 16px;
+  margin-top: 22px;
+}
+p {
+  color: #b7c2ce;
+}
+label {
+  display: block;
+  margin: 12px 0;
+}
+input[type="number"],
+input[readonly] {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  background: #232d38;
+  color: white;
+  border: 1px solid #4b596a;
+  border-radius: 6px;
+}
+button {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: #a8e3c0;
+  color: #15231c;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+}
+#result {
+  white-space: pre-wrap;
+}

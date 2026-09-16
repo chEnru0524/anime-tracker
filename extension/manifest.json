@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "夜番 YORU — 動畫瘋同步",
+  "version": "1.0.0",
+  "description": "在本機同步巴哈姆特動畫瘋觀看進度至你的夜番收藏。",
+  "permissions": ["storage", "activeTab"],
+  "background": { "service_worker": "worker.js", "type": "module" },
+  "action": { "default_popup": "popup.html" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://ani.gamer.com.tw/animeVideo.php*",
+        "https://ani.gamer.com.tw/viewList.php*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "externally_connectable": { "matches": ["https://chenru0524.github.io/*"] }
+}
