@@ -1,5 +1,12 @@
 import { readCache, writeCache } from "./db";
 import { type Anime, type Season, currentSeason } from "./model";
+import {
+  jikanFilterParams,
+  bangumiFilterTags,
+  jikanPagination,
+  bangumiPagination,
+  type CatalogFilters,
+} from "./catalog";
 let traditional = (input: string) => input;
 let converterReady: Promise<void> | undefined;
 function loadConverter() {
@@ -10,13 +17,24 @@ function loadConverter() {
 export interface CatalogResult {
   items: Anime[];
   hasNext: boolean;
+  totalPages?: number;
+  totalItems?: number;
   warning?: string;
   cachedAt?: number;
 }
 export interface AnimeProvider {
   search(query: string, page?: number): Promise<CatalogResult>;
-  season(year: number, season: Season, page?: number): Promise<CatalogResult>;
-  upcoming(page?: number, year?: number): Promise<CatalogResult>;
+  season(
+    year: number,
+    season: Season,
+    page?: number,
+    filters?: CatalogFilters,
+  ): Promise<CatalogResult>;
+  upcoming(
+    page?: number,
+    year?: number,
+    filters?: CatalogFilters,
+  ): Promise<CatalogResult>;
   detail(id: number): Promise<{ anime: Anime; warning?: string }>;
 }
 const JIKAN = "https://api.jikan.moe/v4";
@@ -210,10 +228,10 @@ async function catalog(
 ): Promise<CatalogResult> {
   try {
     const result = await run();
-    await writeCache("catalog:" + key, result);
+    await writeCache("catalog:v2:" + key, result);
     return result;
   } catch (error) {
-    const cached = await readCache("catalog:" + key);
+    const cached = await readCache("catalog:v2:" + key);
     if (cached)
       return {
         ...(cached.data as CatalogResult),
@@ -222,7 +240,7 @@ async function catalog(
       };
     if (fallback) {
       const result = await fallback();
-      await writeCache("catalog:" + key, result);
+      await writeCache("catalog:v2:" + key, result);
       return result;
     }
     throw error;
@@ -266,13 +284,21 @@ async function bangumiCatalog(
   keyword: string,
   page: number,
   range?: string[],
+  filters: CatalogFilters = {},
 ): Promise<CatalogResult> {
   const r = await request(
-    `/search/subjects?limit=24&offset=${(page - 1) * 24}`,
+    `/search/subjects?limit=20&offset=${(page - 1) * 20}`,
     {
       keyword,
       sort: keyword ? "match" : "heat",
-      filter: { type: [2], nsfw: false, ...(range ? { air_date: range } : {}) },
+      filter: {
+        type: [2],
+        nsfw: false,
+        ...(range ? { air_date: range } : {}),
+        ...(bangumiFilterTags(filters).length
+          ? { tag: bangumiFilterTags(filters) }
+          : {}),
+      },
     },
     true,
   );
@@ -292,9 +318,9 @@ async function bangumiCatalog(
   }
   return {
     items,
-    hasNext: page * 24 < (r.total ?? 0),
+    ...bangumiPagination(r.total ?? 0, page),
     warning:
-      "Jikan 暫時無法使用，已改用 Bangumi。未確認的播出狀態與平台顯示為未定。",
+      "Jikan 暫時無法使用，已改用 Bangumi。類型依 Bangumi 分類標籤篩選；未確認的播出狀態與平台顯示為未定。",
   };
 }
 export const provider: AnimeProvider = {
@@ -309,7 +335,8 @@ export const provider: AnimeProvider = {
           true,
         );
         zhMatches = b.data ?? [];
-        if (!zhMatches.length) return { items: [], hasNext: false };
+        if (!zhMatches.length)
+          return { items: [], hasNext: false, totalPages: 0, totalItems: 0 };
         const all = await Promise.all(
           zhMatches.slice(0, 3).map(async (x: any) => {
             const r = await request(
@@ -322,7 +349,7 @@ export const provider: AnimeProvider = {
           data: [
             ...new Map(all.flat().map((a: any) => [a.mal_id, a])).values(),
           ],
-          pagination: { has_next_page: false },
+          pagination: { has_next_page: false, last_visible_page: 1 },
         };
       } else
         raw = await request(
@@ -342,48 +369,75 @@ export const provider: AnimeProvider = {
           enriched[i]?.status === "fulfilled" ? enriched[i].value : a,
         );
       }
-      return { items, hasNext: raw.pagination?.has_next_page ?? false };
+      return {
+        items,
+        ...jikanPagination(raw, page),
+        ...(zhMatches.length
+          ? { totalItems: items.length, totalPages: items.length ? 1 : 0 }
+          : {}),
+      };
     });
   },
-  async season(year, season, page = 1) {
+  async season(year, season, page = 1, filters = {}) {
+    const d = seasonDates(year, season);
+    const range = [`>=${d[0]}`, `<${d[1]}`];
+    if (filters.upcomingOnly)
+      range.push(`>${new Date().toISOString().slice(0, 10)}`);
     return catalog(
-      `season:${year}:${season}:${page}`,
+      `season:${year}:${season}:${page}:${JSON.stringify(filters)}`,
       async () => {
-        const r = await request(
-          `/seasons/${year}/${season}?page=${page}&limit=24&sfw=true`,
-        );
+        let path = `/seasons/${year}/${season}?page=${page}&limit=24&sfw=true${filters.format ? "&filter=" + filters.format : ""}`;
+        if (filters.genre || filters.upcomingOnly) {
+          const params = jikanFilterParams(filters);
+          const end = new Date(d[1] + "T00:00:00Z");
+          end.setUTCDate(end.getUTCDate() - 1);
+          params.set("start_date", d[0]);
+          params.set("end_date", end.toISOString().slice(0, 10));
+          if (filters.upcomingOnly) params.set("status", "upcoming");
+          path = `/anime?${params}&page=${page}&limit=24&sfw=true&order_by=popularity&sort=asc`;
+        }
+        const r = await request(path);
         const enriched = await enrichList(
           (r.data ?? []).map(normalize),
           year,
           season,
         );
-        return { ...enriched, hasNext: r.pagination?.has_next_page ?? false };
+        return { ...enriched, ...jikanPagination(r, page) };
       },
       () => {
-        const d = seasonDates(year, season);
-        return bangumiCatalog("", page, [`>=${d[0]}`, `<${d[1]}`]);
+        return bangumiCatalog("", page, range, filters);
       },
     );
   },
-  async upcoming(page = 1, year) {
+  async upcoming(page = 1, year, filters = {}) {
     return catalog(
-      `upcoming:${year ?? "all"}:${page}`,
+      `upcoming:${year ?? "all"}:${page}:${JSON.stringify(filters)}`,
       async () => {
+        const params = jikanFilterParams(filters);
+        if (year) {
+          params.set("start_date", `${year}-01-01`);
+          params.set("end_date", `${year}-12-31`);
+        }
         const r = await request(
-          year
-            ? `/anime?status=upcoming&start_date=${year}-01-01&end_date=${year}-12-31&order_by=start_date&sort=asc&sfw=true&page=${page}&limit=24`
+          year || filters.format || filters.genre
+            ? `/anime?status=upcoming&${params}&order_by=start_date&sort=asc&sfw=true&page=${page}&limit=24`
             : `/seasons/upcoming?page=${page}&limit=24&sfw=true`,
         );
         const enriched = await enrichList((r.data ?? []).map(normalize), year);
-        return { ...enriched, hasNext: r.pagination?.has_next_page ?? false };
+        return { ...enriched, ...jikanPagination(r, page) };
       },
       () =>
         bangumiCatalog(
           "",
           page,
           year
-            ? [`>=${year}-01-01`, `<${year + 1}-01-01`]
+            ? [
+                `>=${year}-01-01`,
+                `<${year + 1}-01-01`,
+                `>${new Date().toISOString().slice(0, 10)}`,
+              ]
             : [`>${new Date().toISOString().slice(0, 10)}`],
+          filters,
         ),
     );
   },

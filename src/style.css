@@ -1777,3 +1777,59 @@ footer > span:first-child {
     font-size: 14px;
   }
 }
+.pagination {
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+.pagination-buttons,
+.page-jump {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.pagination-buttons > span {
+  min-width: 92px;
+  text-align: center;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.page-jump {
+  font-size: 14px;
+  color: var(--muted);
+}
+.page-jump input {
+  width: 76px;
+  padding: 8px 10px;
+  text-align: center;
+}
+.page-error {
+  flex-basis: 100%;
+  text-align: center;
+  color: #efc49b;
+  font-size: 14px;
+}
+.results-heading {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 650px) {
+  .pagination-buttons {
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .pagination-buttons button {
+    font-size: 12px;
+    padding: 8px 10px;
+  }
+  .pagination-buttons > span {
+    font-size: 13px;
+    min-width: 84px;
+  }
+  .page-jump input {
+    font-size: 16px;
+  }
+  .pagination {
+    gap: 18px;
+  }
+}

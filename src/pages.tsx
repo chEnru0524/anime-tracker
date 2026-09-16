@@ -12,6 +12,7 @@ import {
   type Season,
 } from "./model";
 import { useStore } from "./store";
+import { formats, genres, validPage, type CatalogFilters } from "./catalog";
 export { Detail } from "./detail";
 export { Stats, BackupPage } from "./settings";
 export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
@@ -22,14 +23,24 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
   const [future, setFuture] = useState("next"),
     [year, setYear] = useState(String(next.year)),
     [season, setSeason] = useState<Season>(next.season),
-    [page, setPage] = useState(1),
+    [format, setFormat] = useState<CatalogFilters["format"]>(""),
+    [genre, setGenre] = useState<CatalogFilters["genre"]>(""),
+    [pageState, setPageState] = useState({ key: "", value: 1 }),
     [data, setData] = useState<CatalogResult>({ items: [], hasNext: false }),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [retry, setRetry] = useState(0);
-  useEffect(() => {
-    setPage(1);
-  }, [mode, query, future, year, season]);
+  const filterKey = JSON.stringify([
+    mode,
+    query,
+    future,
+    year,
+    season,
+    format,
+    genre,
+  ]);
+  const page = pageState.key === filterKey ? pageState.value : 1;
+  const setPage = (value: number) => setPageState({ key: filterKey, value });
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -39,25 +50,33 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
       mode === "search"
         ? provider.search(query, page)
         : mode === "season"
-          ? provider.season(now.year, now.season, page)
+          ? provider.season(now.year, now.season, page, { format, genre })
           : future === "next"
-            ? provider.season(next.year, next.season, page)
+            ? provider.season(next.year, next.season, page, {
+                format,
+                genre,
+                upcomingOnly: true,
+              })
             : future === "quarter"
-              ? provider.season(Number(year), season, page)
+              ? provider.season(Number(year), season, page, {
+                  format,
+                  genre,
+                  upcomingOnly: true,
+                })
               : provider.upcoming(
                   page,
                   year === "all" ? undefined : Number(year),
+                  { format, genre },
                 );
     job
-      .then(
-        (r) =>
-          active &&
-          setData(
-            mode === "upcoming"
-              ? { ...r, items: r.items.filter((a) => a.airing === "upcoming") }
-              : r,
-          ),
-      )
+      .then((r) => {
+        if (!active) return;
+        if (r.totalPages !== undefined && page > Math.max(1, r.totalPages)) {
+          setPageState({ key: filterKey, value: Math.max(1, r.totalPages) });
+          return;
+        }
+        setData(r);
+      })
       .catch((e) => active && setError(e.message))
       .finally(() => active && setLoading(false));
     return () => {
@@ -70,6 +89,9 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
     year,
     season,
     page,
+    format,
+    genre,
+    filterKey,
     retry,
     now.year,
     now.season,
@@ -101,50 +123,103 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
           </p>
         </div>
       </div>
-      {mode === "upcoming" && (
+      {mode !== "search" && (
         <div className="filters">
+          {mode === "upcoming" && (
+            <>
+              <label>
+                範圍
+                <select
+                  value={future}
+                  onChange={(e) => {
+                    setFuture(e.target.value);
+                    if (e.target.value === "quarter" && year === "all")
+                      setYear(String(next.year));
+                  }}
+                >
+                  <option value="next">下一季度</option>
+                  <option value="quarter">指定未來季度</option>
+                  <option value="all">所有未來動畫</option>
+                </select>
+              </label>
+              {future !== "next" && (
+                <label>
+                  播出年份
+                  <select
+                    value={year}
+                    onChange={(e) => setYear(e.target.value)}
+                  >
+                    {future === "all" && (
+                      <option value="all">所有年份（含日期未定）</option>
+                    )}
+                    {Array.from({ length: 6 }, (_, i) => now.year + i).map(
+                      (y) => (
+                        <option key={y}>{y}</option>
+                      ),
+                    )}
+                  </select>
+                </label>
+              )}
+              {future === "quarter" && (
+                <label>
+                  季度
+                  <select
+                    value={season}
+                    onChange={(e) => setSeason(e.target.value as Season)}
+                  >
+                    {Object.entries(seasons).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </>
+          )}
           <label>
-            範圍
+            播出形式
             <select
-              value={future}
-              onChange={(e) => {
-                setFuture(e.target.value);
-                if (e.target.value === "quarter" && year === "all")
-                  setYear(String(next.year));
-              }}
+              aria-label="播出形式"
+              value={format}
+              onChange={(e) =>
+                setFormat(e.target.value as CatalogFilters["format"])
+              }
             >
-              <option value="next">下一季度</option>
-              <option value="quarter">指定未來季度</option>
-              <option value="all">所有未來動畫</option>
+              <option value="">全部形式</option>
+              {Object.entries(formats).map(([key, f]) => (
+                <option key={key} value={key}>
+                  {f.label}
+                </option>
+              ))}
             </select>
           </label>
-          {future !== "next" && (
-            <label>
-              播出年份
-              <select value={year} onChange={(e) => setYear(e.target.value)}>
-                {future === "all" && (
-                  <option value="all">所有年份（含日期未定）</option>
-                )}
-                {Array.from({ length: 6 }, (_, i) => now.year + i).map((y) => (
-                  <option key={y}>{y}</option>
-                ))}
-              </select>
-            </label>
-          )}
-          {future === "quarter" && (
-            <label>
-              季度
-              <select
-                value={season}
-                onChange={(e) => setSeason(e.target.value as Season)}
-              >
-                {Object.entries(seasons).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <label>
+            題材類型
+            <select
+              aria-label="題材類型"
+              value={genre}
+              onChange={(e) =>
+                setGenre(e.target.value as CatalogFilters["genre"])
+              }
+            >
+              <option value="">全部題材</option>
+              {Object.entries(genres).map(([key, g]) => (
+                <option key={key} value={key}>
+                  {g.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {(format || genre) && (
+            <button
+              onClick={() => {
+                setFormat("");
+                setGenre("");
+              }}
+            >
+              清除類型篩選
+            </button>
           )}
         </div>
       )}
@@ -161,16 +236,23 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
           <button onClick={() => setRetry((x) => x + 1)}>重新嘗試</button>
         </div>
       )}
+      {!loading && !error && (
+        <div className="results-heading">
+          <span>
+            {data.totalPages === 0
+              ? "共 0 頁"
+              : `第 ${page} / ${data.totalPages ?? "未定"} 頁`}
+            {data.totalItems !== undefined
+              ? ` · 共 ${data.totalItems} 部動畫`
+              : ` · 本頁 ${data.items.length} 部動畫`}
+          </span>
+          <span>中文名稱由 Bangumi 補充</span>
+        </div>
+      )}
       {loading ? (
         <Loading />
       ) : data.items.length ? (
         <>
-          <div className="results-heading">
-            <span>
-              第 {page} 頁 · {data.items.length} 部動畫
-            </span>
-            <span>中文名稱由 Bangumi 補充</span>
-          </div>
           <div className="anime-grid">
             {data.items.map((a) => (
               <AnimeCard key={a.id} anime={a} />
@@ -180,28 +262,117 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
       ) : (
         !error && <Empty heading="目前沒有符合條件的動畫" action={false} />
       )}
-      <div className="pagination">
+      <Pagination
+        key={filterKey}
+        page={page}
+        totalPages={data.totalPages}
+        hasNext={data.hasNext}
+        disabled={loading || !!error}
+        onPage={(value) => {
+          setPage(value);
+          window.scrollTo(0, 0);
+        }}
+      />
+    </>
+  );
+}
+function Pagination({
+  page,
+  totalPages,
+  hasNext,
+  disabled,
+  onPage,
+}: {
+  page: number;
+  totalPages?: number;
+  hasNext: boolean;
+  disabled: boolean;
+  onPage: (page: number) => void;
+}) {
+  const [target, setTarget] = useState(String(page)),
+    [error, setError] = useState("");
+  useEffect(() => {
+    setTarget(String(page));
+    setError("");
+  }, [page]);
+  const empty = totalPages === 0;
+  return (
+    <nav className="pagination" aria-label="動畫分頁">
+      <div className="pagination-buttons">
         <button
-          disabled={loading || page === 1}
-          onClick={() => {
-            setPage((p) => p - 1);
-            window.scrollTo(0, 0);
-          }}
+          disabled={disabled || empty || page === 1}
+          onClick={() => onPage(1)}
+        >
+          首頁
+        </button>
+        <button
+          disabled={disabled || empty || page === 1}
+          onClick={() => onPage(page - 1)}
         >
           上一頁
         </button>
-        <span>{page}</span>
+        <span role="status" aria-label="目前頁碼">
+          {disabled
+            ? "載入中…"
+            : empty
+              ? "共 0 頁"
+              : `第 ${page} / ${totalPages ?? "未定"} 頁`}
+        </span>
         <button
-          disabled={loading || !data.hasNext}
-          onClick={() => {
-            setPage((p) => p + 1);
-            window.scrollTo(0, 0);
-          }}
+          disabled={disabled || !hasNext}
+          onClick={() => onPage(page + 1)}
         >
           下一頁
         </button>
+        <button
+          disabled={
+            disabled || empty || totalPages === undefined || page >= totalPages
+          }
+          onClick={() => totalPages && onPage(totalPages)}
+        >
+          末頁
+        </button>
       </div>
-    </>
+      <form
+        className="page-jump"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const value = validPage(target, totalPages);
+          if (value === null) {
+            setError(
+              `請輸入 1${totalPages === undefined ? "" : `–${totalPages}`} 的整數頁碼`,
+            );
+            return;
+          }
+          setError("");
+          onPage(value);
+        }}
+      >
+        <label htmlFor="jump-page">跳至</label>
+        <input
+          id="jump-page"
+          aria-label="跳轉頁碼"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={totalPages || undefined}
+          step={1}
+          required
+          value={target}
+          disabled={disabled || empty}
+          onChange={(e) => setTarget(e.target.value)}
+        />
+        <span>頁</span>
+        <button type="submit" disabled={disabled || empty}>
+          前往
+        </button>
+      </form>
+      {error && (
+        <p role="alert" className="page-error">
+          {error}
+        </p>
+      )}
+    </nav>
   );
 }
 export function LibraryPage() {
