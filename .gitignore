@@ -1,5 +1,7 @@
 node_modules/
 dist/
+extension-dist/
+public/yoru-bahamut-extension.zip
 *.tsbuildinfo
 .env*
 !.env.example

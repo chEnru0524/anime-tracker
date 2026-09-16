@@ -153,3 +153,8 @@ tests/              瀏覽器完整流程與額外 live smoke
 
 本季與未來新番可依播出形式（TV、劇場版、OVA、ONA、特別篇）及題材篩選。列表顯示總筆數與總頁數，支援首末頁、上一頁／下一頁及直接輸入頁碼；變更條件會回到第一頁。篩選由 API 對完整結果執行，Bangumi 備援使用分類標籤，分類可能與 Jikan 不同。
 
+## 巴哈姆特動畫瘋同步
+
+新增動畫瘋同步頁與 Chrome / Edge Manifest V3 擴充功能。首次匯入讀取已登入的觀看紀錄頁；日常觀看以實際播放片段達到預設 80% 後排入本機佇列，夜番開啟時自動接收。配對使用作品 ID、集數範圍與偏移，首次由使用者確認，不靠中文名稱硬比對。
+
+安裝、權限、使用方法與限制見 [extension/README.md](./extension/README.md)，實際網站調查見 [extension/RESEARCH.md](./extension/RESEARCH.md)。npm run build 會一起產生擴充功能 ZIP 並部署至 Pages。

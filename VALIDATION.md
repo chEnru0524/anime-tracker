@@ -39,3 +39,9 @@
 - 驗證總頁數、直接跳頁、末頁、篩選重設頁碼、零結果與 Bangumi 20 筆分頁 offset。
 - 篩選頁面在 390、768、1440px 無橫向溢出，新增流程無未捕捉 JavaScript error。
 
+## 動畫瘋同步驗證
+
+- 已檢查真實公開播放器 DOM、播放器腳本，以及使用者自行登入後的觀看紀錄 DOM／載入腳本；沒有保存登入憑證或真實紀錄至 Repository。
+- 新增測試涵蓋集數 5 → 8、較早集數不倒退、時間合併、去重、跨季偏移、備份相容、sender allowlist、廣告／拖曳排除與歷史分頁讀取。
+- 本機完整 Chrome for Testing 無法啟動，原生擴充功能端到端測試設定於 GitHub Actions 的 Linux Chromium 執行（RUN_NATIVE_EXTENSION=1）；本機另用實際編譯 content script、worker 與合成頁面測試。
+- 非真實帳號的長片完整播放測試；真實播放器版本／廣告方案差異仍可能影響偵測，無法識別時會保守停止。
