@@ -165,56 +165,74 @@ test("real unpacked extension: capture history, durable queue, confirmed mapping
     await expect(app.locator(".sync-event")).toHaveCount(0);
     await app.goto(base + "#/library");
     await expect(app.locator(".progress-caption")).toContainText("8 / 12");
-    // Exercise the actual content detector with deterministic media properties, seeks and ad state.
+    // Real media properties are shared across Chrome's isolated worlds; JS property overrides are not.
     await app.close();
-    await ani.clock.install();
     await ani.goto("https://ani.gamer.com.tw/animeVideo.php?sn=456");
+    const wav = Buffer.alloc(44 + 8000 * 2 * 12);
+    wav.write("RIFF", 0);
+    wav.writeUInt32LE(wav.length - 8, 4);
+    wav.write("WAVEfmt ", 8);
+    wav.writeUInt32LE(16, 16);
+    wav.writeUInt16LE(1, 20);
+    wav.writeUInt16LE(1, 22);
+    wav.writeUInt32LE(8000, 24);
+    wav.writeUInt32LE(16000, 28);
+    wav.writeUInt16LE(2, 32);
+    wav.writeUInt16LE(16, 34);
+    wav.write("data", 36);
+    wav.writeUInt32LE(wav.length - 44, 40);
+    await ani.evaluate((data) => {
+      const v = document.querySelector("video")!;
+      v.src = `data:audio/wav;base64,${data}`;
+      v.muted = true;
+      v.addEventListener("timeupdate", () =>
+        localStorage.setItem(
+          "ANIME_BP",
+          JSON.stringify({ videoSn: 456, breakPoint: v.currentTime }),
+        ),
+      );
+    }, wav.toString("base64"));
+    await expect
+      .poll(() =>
+        ani.evaluate(() => document.querySelector("video")!.readyState),
+      )
+      .toBe(4);
+    await ani.waitForTimeout(1200);
     await ani.evaluate(() => {
       const v = document.querySelector("video")!;
-      Object.defineProperty(v, "duration", { get: () => 10 });
-      Object.defineProperty(v, "readyState", { get: () => 4 });
-      Object.defineProperty(v, "paused", { get: () => false });
-      Object.defineProperty(v, "seeking", { get: () => false });
-      Object.defineProperty(v, "currentTime", { value: 0, writable: true });
+      v.currentTime = 11;
+      return v.play();
     });
-    await ani.clock.runFor(1500);
-    async function tick(time: number, ad = false) {
-      await ani.clock.runFor(1000);
-      await ani.evaluate(
-        ({ time, ad }) => {
-          const v = document.querySelector("video")!;
-          (v as any).currentTime = time;
-          document
-            .getElementById("ani_video")!
-            .classList.toggle("vjs-ad-playing", ad);
-          localStorage.setItem(
-            "ANIME_BP",
-            JSON.stringify({ videoSn: 456, breakPoint: time }),
-          );
-          v.dispatchEvent(new Event("timeupdate"));
-        },
-        { time, ad },
-      );
-    }
-    await tick(0);
-    await tick(9);
-    await tick(0, true);
-    await tick(9, true);
+    await ani.waitForTimeout(1300);
+    await ani.evaluate(() => {
+      document.getElementById("ani_video")!.classList.add("vjs-ad-playing");
+      const v = document.querySelector("video")!;
+      v.currentTime = 0;
+      return v.play();
+    });
+    await ani.waitForTimeout(1500);
     expect(
       await worker.evaluate(
         async () =>
           (await chrome.storage.local.get("state")).state.queue.length,
       ),
     ).toBe(0);
-    for (let t = 0; t <= 9; t++) await tick(t);
+    await ani.evaluate(() => {
+      document.getElementById("ani_video")!.classList.remove("vjs-ad-playing");
+      const v = document.querySelector("video")!;
+      v.currentTime = 0;
+      return v.play();
+    });
     await expect
-      .poll(() =>
-        worker.evaluate(
-          async () =>
-            (await chrome.storage.local.get("state")).state.queue.filter(
-              (x: any) => x.kind === "live",
-            ).length,
-        ),
+      .poll(
+        () =>
+          worker.evaluate(
+            async () =>
+              (await chrome.storage.local.get("state")).state.queue.filter(
+                (x: any) => x.kind === "live",
+              ).length,
+          ),
+        { timeout: 20000 },
       )
       .toBeGreaterThan(0);
     // Site closed scenario leaves data queued. Opening sync commits and acknowledges it.
