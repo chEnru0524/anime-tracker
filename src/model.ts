@@ -112,6 +112,9 @@ export function currentSeason(d = new Date()): {
 export function nextSeason(d = new Date()) {
   return currentSeason(new Date(d.getFullYear(), d.getMonth() + 3, 1));
 }
+export function previousSeason(d = new Date()) {
+  return currentSeason(new Date(d.getFullYear(), d.getMonth() - 3, 1));
+}
 export function title(a: Anime) {
   return a.zh || a.ja || a.title;
 }

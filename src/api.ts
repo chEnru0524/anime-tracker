@@ -6,6 +6,7 @@ import {
   jikanPagination,
   bangumiPagination,
   type CatalogFilters,
+  genres,
 } from "./catalog";
 let traditional = (input: string) => input;
 let converterReady: Promise<void> | undefined;
@@ -23,6 +24,7 @@ export interface CatalogResult {
   cachedAt?: number;
 }
 export interface AnimeProvider {
+  seasonYears(): Promise<number[]>;
   search(query: string, page?: number): Promise<CatalogResult>;
   season(
     year: number,
@@ -324,6 +326,12 @@ async function bangumiCatalog(
   };
 }
 export const provider: AnimeProvider = {
+  async seasonYears() {
+    const r = await request("/seasons");
+    return [...new Set<number>((r.data ?? []).map((x: any) => x.year))]
+      .filter((y) => Number.isInteger(y) && y > 0)
+      .sort((a, b) => b - a);
+  },
   async search(query, page = 1) {
     return catalog(`search:${query}:${page}`, async () => {
       let raw: any;
@@ -383,6 +391,96 @@ export const provider: AnimeProvider = {
     const range = [`>=${d[0]}`, `<${d[1]}`];
     if (filters.upcomingOnly)
       range.push(`>${new Date().toISOString().slice(0, 10)}`);
+    if (filters.sort) {
+      // Fetch the complete quarter before sorting/paging. Do not sort only one API page.
+      return catalog(
+        `archive:${year}:${season}:${page}:${JSON.stringify(filters)}`,
+        async () => {
+          const rows: any[] = [];
+          for (let p = 1; ; p++) {
+            const r = await request(
+              `/seasons/${year}/${season}?page=${p}&limit=25&sfw=true${filters.format ? "&filter=" + filters.format : ""}`,
+            );
+            rows.push(...(r.data ?? []));
+            if (!r.pagination?.has_next_page) break;
+          }
+          const genreId = filters.genre ? genres[filters.genre].id : null;
+          const unique = [
+            ...new Map(rows.map((r) => [r.mal_id, r])).values(),
+          ].filter(
+            (r) =>
+              !genreId ||
+              (r.genres ?? []).some((g: any) => g.mal_id === genreId),
+          );
+          unique.sort((a, b) =>
+            filters.sort === "title"
+              ? (a.title || "").localeCompare(b.title || "", "en") ||
+                a.mal_id - b.mal_id
+              : ((filters.sort === "score" ? b.score : b.members) ?? -1) -
+                  ((filters.sort === "score" ? a.score : a.members) ?? -1) ||
+                a.mal_id - b.mal_id,
+          );
+          const enriched = await enrichList(
+            unique.slice((page - 1) * 24, page * 24).map(normalize),
+            year,
+            season,
+          );
+          const totalPages = Math.ceil(unique.length / 24);
+          return {
+            ...enriched,
+            totalItems: unique.length,
+            totalPages,
+            hasNext: page < totalPages,
+          };
+        },
+        async () => {
+          const rows: any[] = [];
+          for (let offset = 0; ;) {
+            const r = await request(
+              `/search/subjects?limit=20&offset=${offset}`,
+              {
+                keyword: "",
+                sort: filters.sort === "score" ? "rank" : "heat",
+                filter: {
+                  type: [2],
+                  nsfw: false,
+                  air_date: range,
+                  tag: bangumiFilterTags(filters),
+                },
+              },
+              true,
+            );
+            rows.push(...(r.data ?? []));
+            if (rows.length >= (r.total ?? 0) || !r.data?.length) break;
+            offset += r.data.length;
+          }
+          const unique = [...new Map(rows.map((r) => [r.id, r])).values()];
+          const popularity = (r: any) =>
+            Object.values(r.collection ?? {}).reduce<number>(
+              (sum, n) => sum + (typeof n === "number" ? n : 0),
+              0,
+            );
+          unique.sort((a, b) =>
+            filters.sort === "title"
+              ? (a.name || "").localeCompare(b.name || "", "ja") || a.id - b.id
+              : ((filters.sort === "score" ? b.rating?.score : popularity(b)) ??
+                  -1) -
+                  ((filters.sort === "score"
+                    ? a.rating?.score
+                    : popularity(a)) ?? -1) || a.id - b.id,
+          );
+          const totalPages = Math.ceil(unique.length / 24);
+          return {
+            items: unique.slice((page - 1) * 24, page * 24).map(fromBangumi),
+            totalItems: unique.length,
+            totalPages,
+            hasNext: page < totalPages,
+            warning:
+              "Jikan 暫時無法使用，已改用 Bangumi 的首播日期、分類、收藏人數與評分；名稱依原文排序。",
+          };
+        },
+      );
+    }
     return catalog(
       `season:${year}:${season}:${page}:${JSON.stringify(filters)}`,
       async () => {

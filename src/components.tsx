@@ -16,6 +16,7 @@ import {
   platforms,
   seasons,
   airingLabels,
+  statuses,
   type Anime,
   type RecordEntry,
 } from "./model";
@@ -81,7 +82,8 @@ export function AddButtons({ anime }: { anime: Anime }) {
       to={`/anime/${r.anime.id}`}
       state={{ anime: r.anime }}
     >
-      <Check size={15} /> 已加入收藏
+      <Check size={15} /> 已加入收藏 · {statuses[r.status]} · {r.progress} /{" "}
+      {r.anime.episodes ?? "未定"} 集
     </Link>
   ) : (
     <div className="add-buttons">

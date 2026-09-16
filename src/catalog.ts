@@ -21,6 +21,7 @@ export type CatalogFilters = {
   format?: keyof typeof formats | "";
   genre?: keyof typeof genres | "";
   upcomingOnly?: boolean;
+  sort?: "popularity" | "score" | "title";
 };
 export function jikanFilterParams(filters: CatalogFilters) {
   const params = new URLSearchParams();

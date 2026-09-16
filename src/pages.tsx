@@ -6,6 +6,7 @@ import { AnimeCard, Empty, Loading } from "./components";
 import {
   currentSeason,
   nextSeason,
+  previousSeason,
   seasons,
   statuses,
   title,
@@ -15,16 +16,25 @@ import { useStore } from "./store";
 import { formats, genres, validPage, type CatalogFilters } from "./catalog";
 export { Detail } from "./detail";
 export { Stats, BackupPage } from "./settings";
-export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
+export function Catalog({
+  mode,
+}: {
+  mode: "season" | "upcoming" | "search" | "archive";
+}) {
   const [params] = useSearchParams(),
     query = params.get("q") ?? "",
     now = currentSeason(),
-    next = nextSeason();
+    next = mode === "archive" ? previousSeason() : nextSeason();
   const [future, setFuture] = useState("next"),
     [year, setYear] = useState(String(next.year)),
     [season, setSeason] = useState<Season>(next.season),
     [format, setFormat] = useState<CatalogFilters["format"]>(""),
     [genre, setGenre] = useState<CatalogFilters["genre"]>(""),
+    [sort, setSort] =
+      useState<NonNullable<CatalogFilters["sort"]>>("popularity"),
+    [yearInput, setYearInput] = useState(String(next.year)),
+    [yearOptions, setYearOptions] = useState<number[]>([]),
+    [yearWarning, setYearWarning] = useState(""),
     [pageState, setPageState] = useState({ key: "", value: 1 }),
     [data, setData] = useState<CatalogResult>({ items: [], hasNext: false }),
     [loading, setLoading] = useState(true),
@@ -38,7 +48,24 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
     season,
     format,
     genre,
+    sort,
   ]);
+  useEffect(() => {
+    if (mode !== "archive") return;
+    let active = true;
+    provider
+      .seasonYears()
+      .then((years) => {
+        if (active) setYearOptions(years);
+      })
+      .catch(() => {
+        if (active)
+          setYearWarning("年份建議暫時無法載入，仍可直接輸入年份查詢。");
+      });
+    return () => {
+      active = false;
+    };
+  }, [mode]);
   const page = pageState.key === filterKey ? pageState.value : 1;
   const setPage = (value: number) => setPageState({ key: filterKey, value });
   useEffect(() => {
@@ -51,23 +78,29 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
         ? provider.search(query, page)
         : mode === "season"
           ? provider.season(now.year, now.season, page, { format, genre })
-          : future === "next"
-            ? provider.season(next.year, next.season, page, {
+          : mode === "archive"
+            ? provider.season(Number(year), season, page, {
                 format,
                 genre,
-                upcomingOnly: true,
+                sort,
               })
-            : future === "quarter"
-              ? provider.season(Number(year), season, page, {
+            : future === "next"
+              ? provider.season(next.year, next.season, page, {
                   format,
                   genre,
                   upcomingOnly: true,
                 })
-              : provider.upcoming(
-                  page,
-                  year === "all" ? undefined : Number(year),
-                  { format, genre },
-                );
+              : future === "quarter"
+                ? provider.season(Number(year), season, page, {
+                    format,
+                    genre,
+                    upcomingOnly: true,
+                  })
+                : provider.upcoming(
+                    page,
+                    year === "all" ? undefined : Number(year),
+                    { format, genre },
+                  );
     job
       .then((r) => {
         if (!active) return;
@@ -91,6 +124,7 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
     page,
     format,
     genre,
+    sort,
     filterKey,
     retry,
     now.year,
@@ -112,19 +146,89 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
               ? "本季新番"
               : mode === "upcoming"
                 ? "未來新番"
-                : `搜尋「${query}」`}
+                : mode === "archive"
+                  ? "歷年動畫"
+                  : `搜尋「${query}」`}
           </h1>
           <p className="subtitle">
             {mode === "season"
               ? `${now.year} ${seasons[now.season]} · 新作與本季動畫，一次探索。`
               : mode === "upcoming"
                 ? "新的世界，正在路上。"
-                : "找到喜歡的動畫，加入你的觀看清單。"}
+                : mode === "archive"
+                  ? `${year} ${seasons[season]} · 重訪每一季的故事。`
+                  : "找到喜歡的動畫，加入你的觀看清單。"}
           </p>
         </div>
       </div>
       {mode !== "search" && (
         <div className="filters">
+          {mode === "archive" && (
+            <>
+              <form
+                className="archive-year"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (/^\d{1,4}$/.test(yearInput) && Number(yearInput) >= 1)
+                    setYear(String(Number(yearInput)));
+                }}
+              >
+                <label>
+                  播出年份
+                  <input
+                    aria-label="播出年份"
+                    type="number"
+                    min="1"
+                    max="9999"
+                    required
+                    list="archive-years"
+                    value={yearInput}
+                    onChange={(e) => setYearInput(e.target.value)}
+                    onBlur={() => {
+                      if (/^\d{1,4}$/.test(yearInput) && Number(yearInput) >= 1)
+                        setYear(String(Number(yearInput)));
+                    }}
+                  />
+                </label>
+                <datalist id="archive-years">
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y} />
+                  ))}
+                </datalist>
+                <button type="submit">查詢年份</button>
+              </form>
+              <label>
+                季度
+                <select
+                  aria-label="季度"
+                  value={season}
+                  onChange={(e) => setSeason(e.target.value as Season)}
+                >
+                  {Object.entries(seasons).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                排序
+                <select
+                  aria-label="排序"
+                  value={sort}
+                  onChange={(e) =>
+                    setSort(
+                      e.target.value as NonNullable<CatalogFilters["sort"]>,
+                    )
+                  }
+                >
+                  <option value="popularity">熱門度：高到低</option>
+                  <option value="score">評分：高到低</option>
+                  <option value="title">名稱：原文順序</option>
+                </select>
+              </label>
+            </>
+          )}
           {mode === "upcoming" && (
             <>
               <label>
@@ -228,6 +332,12 @@ export function Catalog({ mode }: { mode: "season" | "upcoming" | "search" }) {
           {data.warning}
           {data.cachedAt &&
             `（${new Date(data.cachedAt).toLocaleString("zh-TW")}）`}
+        </p>
+      )}
+      {mode === "archive" && (
+        <p className="muted">
+          {yearWarning ||
+            "可直接輸入歷史年份；熱門度依收藏人數、評分依資料來源分數，名稱依原文排序。"}
         </p>
       )}
       {error && (

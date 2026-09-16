@@ -17,6 +17,7 @@ import {
   Library,
   CalendarDays,
   CalendarClock,
+  History,
   ChartNoAxesCombined,
   Database,
   ArrowRight,
@@ -36,6 +37,7 @@ const nav = [
   { to: "/library", label: "我的動畫", icon: Library },
   { to: "/season", label: "本季新番", icon: CalendarDays },
   { to: "/upcoming", label: "未來新番", icon: CalendarClock },
+  { to: "/archive", label: "歷年動畫", icon: History },
   { to: "/stats", label: "統計", icon: ChartNoAxesCombined },
 ];
 export default function App() {
@@ -62,7 +64,12 @@ export default function App() {
         <span className="nav-caption">你的動漫時光</span>
         <nav>
           {nav.map((n) => (
-            <NavLink end={n.to === "/"} key={n.to} to={n.to}>
+            <NavLink
+              end={n.to === "/"}
+              key={n.to}
+              to={n.to}
+              aria-label={n.label}
+            >
               <n.icon size={19} />
               <span>{n.label}</span>
               {n.to === "/library" && <b>{s.records.length}</b>}
@@ -125,6 +132,10 @@ export default function App() {
               <Route path="/library" element={<LibraryPage />} />
               <Route path="/season" element={<Catalog mode="season" />} />
               <Route path="/upcoming" element={<Catalog mode="upcoming" />} />
+              <Route
+                path="/archive"
+                element={<Catalog key="archive" mode="archive" />}
+              />
               <Route path="/search" element={<Catalog mode="search" />} />
               <Route path="/anime/:id" element={<Detail />} />
               <Route path="/stats" element={<Stats />} />

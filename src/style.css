@@ -1803,6 +1803,23 @@ footer > span:first-child {
   padding: 8px 10px;
   text-align: center;
 }
+.archive-year {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.archive-year input {
+  width: 110px;
+}
+.in-library {
+  flex-wrap: wrap;
+}
+@media (max-width: 650px) {
+  .sidebar nav a {
+    padding-inline: 4px;
+  }
+}
 .page-error {
   flex-basis: 100%;
   text-align: center;
