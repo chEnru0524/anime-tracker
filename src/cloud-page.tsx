@@ -32,12 +32,21 @@ export function CloudPage() {
     setPreview(null);
     setUser(null);
     if (!client) return;
+    let cancelled = false;
+    void client.auth.initialize().then(({ error }) => {
+      if (error && !cancelled)
+        setMessage(
+          "登入連結無效、已過期或不是在寄信時的瀏覽器開啟。請在此裝置重新寄送登入郵件，並使用最新連結。",
+        );
+    });
+    client.auth.startAutoRefresh();
     const { data } = client.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setRemote(undefined);
       setPreview(null);
     });
     return () => {
+      cancelled = true;
       data.subscription.unsubscribe();
       client.auth.stopAutoRefresh();
     };
@@ -130,13 +139,16 @@ export function CloudPage() {
                 void run(async () => {
                   const { error } = await client!.auth.signInWithOtp({
                     email: email.trim(),
+                    options: {
+                      emailRedirectTo: location.origin + location.pathname,
+                    },
                   });
                   if (error)
                     throw new Error(
-                      "無法寄出驗證碼，請稍後再試，並確認 Email 與郵件服務設定。",
+                      "無法寄出登入郵件，請稍後再試。預設寄信服務僅允許 Supabase 專案團隊的 Email。",
                     );
                   setMessage(
-                    "驗證郵件已寄出。請輸入信中的驗證碼；若收到連結，管理者需依 README 調整郵件範本。",
+                    "驗證郵件已寄出。請在這台裝置、同一瀏覽器開啟信中的登入連結；若信中提供驗證碼，也可在下方輸入。請使用最新一封信。",
                   );
                 });
               }}
@@ -154,7 +166,7 @@ export function CloudPage() {
                   }}
                 />
               </label>
-              <button disabled={busy}>寄送登入驗證碼</button>
+              <button disabled={busy}>寄送登入郵件</button>
             </form>
             <form
               onSubmit={(e) => {

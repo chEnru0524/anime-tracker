@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { backupSchema, type Backup } from "./model";
 
@@ -31,14 +31,22 @@ export function readCloudConfig(): CloudConfig | null {
     return null;
   }
 }
+let activeClient: SupabaseClient | undefined;
+let activeConfig = "";
 export function cloudClient(config: CloudConfig) {
   config = configSchema.parse(config);
-  return createClient(config.url, config.key, {
+  const signature = JSON.stringify(config);
+  if (activeClient && activeConfig === signature) return activeClient;
+  activeClient?.auth.stopAutoRefresh();
+  activeConfig = signature;
+  activeClient = createClient(config.url, config.key, {
     auth: {
-      detectSessionInUrl: false,
+      detectSessionInUrl: true,
+      flowType: "pkce",
       storageKey: `yoru-auth-${new URL(config.url).hostname}`,
     },
   });
+  return activeClient;
 }
 export type CloudClient = ReturnType<typeof cloudClient>;
 export const cloudRow = z.object({
