@@ -1,4 +1,5 @@
 import { registerLibraryTool } from "./webmcp";
+import { CloudPage } from "./cloud-page";
 import { BahamutSync } from "./bahamut-client";
 import { BahamutPage } from "./bahamut-page";
 import { useEffect, useState } from "react";
@@ -77,6 +78,10 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
+          <NavLink to="/account">
+            <Database size={19} />
+            帳號與雲端紀錄
+          </NavLink>
           <NavLink to="/sync">
             <Play size={19} />
             動畫瘋同步
@@ -141,12 +146,14 @@ export default function App() {
               <Route path="/stats" element={<Stats />} />
               <Route path="/backup" element={<BackupPage />} />
               <Route path="/sync" element={<BahamutPage />} />
+              <Route path="/account" element={<CloudPage />} />
               <Route path="*" element={<Empty heading="找不到這個頁面" />} />
             </Routes>
           )}
         </main>
         <footer>
           <span>夜番 YORU</span>
+          <Link to="/account">帳號與雲端紀錄</Link>
           <Link to="/sync">動畫瘋同步</Link>
           <span>
             動畫資料：

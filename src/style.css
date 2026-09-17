@@ -1872,3 +1872,28 @@ footer > span:first-child {
     gap: 18px;
   }
 }
+/* Account controls retain the existing panel and button styles. */
+.cloud-panel {
+  max-width: 850px;
+  overflow-wrap: anywhere;
+}
+.cloud-panel form {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0;
+}
+.cloud-panel label {
+  display: grid;
+  gap: 8px;
+}
+.cloud-panel input {
+  width: 100%;
+  min-width: 0;
+}
+.cloud-panel p {
+  margin: 16px 0;
+  line-height: 1.7;
+}
+.cloud-panel button {
+  margin: 4px;
+}

@@ -1,4 +1,5 @@
 import { readCache, writeCache } from "./db";
+import { withTaiwanPlatforms } from "./taiwan-platforms";
 import { type Anime, type Season, currentSeason } from "./model";
 import {
   jikanFilterParams,
@@ -578,6 +579,16 @@ export const provider: AnimeProvider = {
   },
 };
 const jikanSearch = provider.search.bind(provider);
+const animeDetail = provider.detail.bind(provider);
+provider.detail = async (id) => {
+  const result = await animeDetail(id);
+  const enriched = await withTaiwanPlatforms(result.anime);
+  return {
+    anime: enriched.anime,
+    warning:
+      [result.warning, enriched.warning].filter(Boolean).join(" ") || undefined,
+  };
+};
 provider.search = async (query, page = 1) => {
   try {
     return await jikanSearch(query, page);

@@ -160,8 +160,17 @@ export function Detail() {
           <section className="detail-section">
             <h2>在哪裡看</h2>
             <p className="muted">
-              優先顯示 {s.settings.region}。API
-              平台的地區授權尚未確認，請以前往平台後的實際結果為準。
+              優先顯示 {s.settings.region}
+              。台灣標記依據播放資料來源，可能因授權到期而異動；請以平台實際播放結果為準。手動設定優先。
+              台灣平台補充來源：
+              <a
+                href="https://github.com/bangumi-data/bangumi-data"
+                target="_blank"
+                rel="noreferrer"
+              >
+                bangumi-data（CC BY 4.0）
+              </a>
+              。未標示地區的平台不代表台灣可播。
             </p>
             <div className="platform-list">
               {known.map((p, i) => (
