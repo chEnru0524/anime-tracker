@@ -6,11 +6,11 @@ const source =
   "https://raw.githubusercontent.com/bangumi-data/bangumi-data/master/dist/data.json";
 const site = z.object({
   site: z.string(),
-  id: z.string(),
+  id: z.string().default(""),
   url: z.string().optional(),
   regions: z.array(z.string()).optional(),
 });
-const schema = z.object({
+export const platformDatasetSchema = z.object({
   siteMeta: z.record(
     z.string(),
     z.object({
@@ -24,6 +24,7 @@ const schema = z.object({
     z.object({ title: z.string(), begin: z.string(), sites: z.array(site) }),
   ),
 });
+const schema = platformDatasetSchema;
 type Data = z.infer<typeof schema>;
 let pending: Promise<{ data: Data; stale: boolean }> | undefined;
 async function dataset() {
@@ -69,6 +70,7 @@ export function matchTaiwanPlatforms(anime: Anime, data: Data): Platform[] {
     const meta = data.siteMeta[s.site];
     if (
       !meta ||
+      (!s.id && !s.url) ||
       meta.type !== "onair" ||
       !(s.regions ?? meta.regions ?? []).includes("TW")
     )

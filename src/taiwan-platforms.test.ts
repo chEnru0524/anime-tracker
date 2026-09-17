@@ -1,6 +1,9 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
-import { matchTaiwanPlatforms } from "./taiwan-platforms";
+import {
+  matchTaiwanPlatforms,
+  platformDatasetSchema,
+} from "./taiwan-platforms";
 import { type Anime } from "./model";
 const anime = { id: 99, ja: "作品", year: 2025 } as Anime;
 const meta = {
@@ -29,6 +32,23 @@ const data = {
   ],
 };
 describe("Taiwan platform matching", () => {
+  it("accepts historical entries with a URL but no site ID", () => {
+    const parsed = platformDatasetSchema.parse({
+      ...data,
+      items: [
+        {
+          ...data.items[0],
+          sites: [
+            { site: "mal", id: "99" },
+            { site: "tw", url: "https://example.com/watch" },
+          ],
+        },
+      ],
+    });
+    expect(matchTaiwanPlatforms(anime, parsed)[0].url).toBe(
+      "https://example.com/watch",
+    );
+  });
   it("uses source IDs and includes only explicitly Taiwan offers", () => {
     expect(matchTaiwanPlatforms({ ...anime, ja: "不同翻譯" }, data)).toEqual([
       {
