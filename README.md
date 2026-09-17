@@ -1,6 +1,43 @@
 # 夜番 YORU — 個人動漫追蹤
 
-純前端、預設深色模式的動漫收藏 Web App。搜尋動畫、查看本季與未來新番、記錄進度和評分、管理觀看平台、匯出與還原資料。**不需要後端、Docker、帳號或 API Key**，可直接部署 GitHub Pages。
+純前端、預設深色模式的動漫收藏 Web App。搜尋動畫、查看本季與未來新番、記錄進度和評分、管理觀看平台、匯出與還原資料。**本機功能不需要後端、Docker、帳號或 API Key**，可直接部署 GitHub Pages。可選用託管 Supabase 帳號與雲端紀錄，不需自行架設 Server。
+
+## 帳號與跨裝置紀錄
+
+頁面：`#/account`。使用 Email 一次性驗證碼登入。此版本採「手動上傳／載入」，不會背景覆蓋收藏。所有裝置使用同一 Supabase 專案與相同 Email。
+
+### 管理者一次性設定
+
+1. 建立託管 [Supabase 專案](https://supabase.com/dashboard)，資料庫密碼只在 Supabase 自行設定，不放到此網站或 Repository。
+2. 在 SQL Editor 執行根目錄 [supabase.sql](./supabase.sql)。它建立私人備份表、RLS 及帶版本檢查的寫入函式；未登入無存取權，登入者只能讀寫自己的資料。請勿關閉 RLS。
+3. Authentication → Email Templates：將 Magic Link 與 Confirm signup 範本加入 `<p>你的夜番登入驗證碼：{{ .Token }}</p>`。保留 Email 驗證，不使用自動確認。使用驗證碼避免 HashRouter 與登入連結片段衝突。
+4. Supabase 預設寄信只支援專案團隊成員的 Email，且寄信次數受限；正式使用請設定自訂 SMTP。SMTP 密碼只放 Supabase，**不放前端或 GitHub**。[官方寄信限制與設定](https://supabase.com/docs/guides/auth/auth-smtp)。
+5. 取得 Project URL 與 `sb_publishable_…` Publishable key。在 GitHub Repository → Settings → Secrets and variables → Actions → Variables 新增 `VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`，重新執行部署後每台裝置自動使用相同專案。這兩項是公開識別設定；**絕對不可使用 secret / service_role key**。
+6. 也可先在網站「首次連接雲端」填入這兩項設定（僅存該瀏覽器，各裝置需各填一次）。本機開發則複製 `.env.example` 至 `.env.local`。
+
+### 使用方式與資料保護
+
+- 原電腦登入 → 讀取雲端摘要 → 上傳本機紀錄 → 確認目的帳號及數量。
+- 新手機／電腦登入同一 Email → 讀取雲端摘要 → 載入雲端紀錄 → 預覽 → 確認還原。
+- 上傳包含收藏、進度、評分、備註、自訂平台、地區偏好與動畫瘋配對／待確認資料；不包含登入憑證、公開 API 快取或擴充功能連線設定。各裝置需自行啟用動畫瘋擴充功能。
+- 上傳是整份取代，包括刪除項目。另一台裝置在摘要讀取後更新時，伺服器會拒絕舊版本寫入；重新讀取後再決定。**沒有自動合併**，兩邊都修改時先各自匯出 JSON。
+- 取代本機前先在 IndexedDB `yoru-cloud-recovery` 保存還原點；可按「下載上次還原前的本機備份」再到備份頁匯入。
+- 登入 Session 由 Supabase SDK 存此瀏覽器，登出清除該 Session；本機收藏仍保留。共用電腦不要留下自己的本機收藏。不同帳號之間不會自動上傳本機紀錄。
+- 雲端不可用時不影響 IndexedDB 收藏；個人 JSON 備份仍可使用。雲端尚未設定時不宣稱已同步；部署程式不會自行建立 Supabase 專案。
+
+技術文件：[Email OTP](https://supabase.com/docs/guides/auth/auth-email-passwordless)、[RLS](https://supabase.com/docs/guides/database/postgres/row-level-security)、[Publishable keys](https://supabase.com/docs/guides/getting-started/api-keys)。
+
+## 台灣播放平台與資料來源研究
+
+動畫詳細頁新增 [bangumi-data](https://github.com/bangumi-data/bangumi-data) 補充平台；資料依 CC BY 4.0 使用並在頁面標註來源。此為公開放送資料集，非即時授權查詢 API。
+
+- 優先以 MAL / Bangumi ID 配對該季作品，無 ID 時僅接受唯一的「日文原名＋首播年份」相符結果；有歧義就不推測。
+- 只把作品或平台地區明確含 `TW` 的播放站點標成台灣；作品地區覆寫平台預設。可包含動畫瘋、木棉花、Ani-One 等，實際依該作品資料而定。Netflix / Disney+ 沒有 TW 標記時不推定台灣授權。
+- 保留原 Anime Provider，不另建動畫資料架構。補充資料快取一天，斷線可回退快取，失敗顯示提示。手動平台永遠優先。詳細頁加入收藏或儲存後，平台隨作品快照保存。
+- 網址可能是作品介紹頁／播放清單，不能保證永久有效；授權下架應以平台現況為準。不把動畫瘋 ACG 作品 ID 當作播放器 series ID。
+- [TMDB Watch Providers](https://developer.themoviedb.org/reference/tv-series-watch-providers) 有國別平台結果，但需 API 認證、作品／季度配對與 JustWatch attribution，暫未接入；不把私有 key 塞進 Pages。
+- [JustWatch Partner API](https://apis.justwatch.com/docs/api/) 提供國別 offers，需要合作存取；未使用非官方私有端點。
+- Wiki 的播出表可作人工參考，但缺乏一致季度、地區及授權到期結構，因此未將文字爬取结果當成「現在台灣一定可播」的依據。
 
 初次使用不會建立假收藏；請搜尋 `Frieren` 或 `葬送的芙莉蓮`，點選「開始觀看」。
 
@@ -66,11 +103,11 @@ Vite 使用 `base: './'`，資源路徑自動相對於網站目錄，因此同�
 - **詳細頁**：中日文名稱、其他名稱、簡介、類型、日期、播出狀態；已收藏可修改評分、備註、日期、觀看狀態及集數。
 - **觀看進度**：不小於 0，不大於已知集數。未知總數可繼續增加（防止異常資料的技術上限為 100,000）。到達已知總集數會詢問是否已看完；取消確認仍會保存進度。從已完成減少集數會回到觀看中。
 - **統計**：總收藏、各狀態數量、總觀看集數、平均個人評分（排除未評分）、依完成日期的年度完成數。
-- **平台**：API 提供的地區皆視為未確認。可手動新增、修改、刪除名稱／HTTP(S) 網址／地區，並優先排序台灣。空網址允許保留平台名稱；不接受 `javascript:`。點擊連結在新分頁開啟。
+- **平台**：來源有明確 TW 標記才列為台灣，其餘視為地區未確認。可手動新增、修改、刪除名稱／HTTP(S) 網址／地區，並優先排序台灣。空網址允許保留平台名稱；不接受 `javascript:`。點擊連結在新分頁開啟。
 
 ## 資料儲存方式
 
-IndexedDB 名稱 `yoru-anime`、schema version 1：
+IndexedDB 名稱 `yoru-anime`、schema version 2（另有 `bahamut` 同步狀態 store）：
 
 | Store      | 內容                                                                                     |
 | ---------- | ---------------------------------------------------------------------------------------- |
@@ -78,7 +115,7 @@ IndexedDB 名稱 `yoru-anime`、schema version 1：
 | `settings` | 優先觀看地區（預設台灣）                                                                 |
 | `cache`    | 公開 API 回應與最近成功的列表                                                            |
 
-個人資料不傳到 API、不存到 GitHub；API 只收到公開資料查詢（例如搜尋詞）。沒有使用 LocalStorage。公開資料快取有效期六小時，取資料失敗時可回退到過去列表快取；收藏保有動畫快照，因此 API 停機不影響查看、編輯、匯出。
+個人資料不傳到 Anime API、不存到 GitHub；Anime API 只收到公開資料查詢（例如搜尋詞）。選擇雲端上傳時，個人備份送至自己設定的 Supabase 專案；LocalStorage 保存公開雲端連線設定與 SDK Session。公開 Anime API 快取有效期六小時，平台補充快取一天；取資料失敗可回退快取。收藏保有動畫快照，因此 API 停機不影響查看、編輯、匯出。
 
 同一瀏覽器的其他分頁可透過 BroadcastChannel 更新畫面。資料依 origin 隔離，**更換網域、瀏覽器、裝置，或清除網站資料不會自動同步**。同一個 `username.github.io` 網域的多個 repository 共享 origin，請避免同時部署多份需分開資料的夜番。此版本沒有 Service Worker；API 離線時個人紀錄仍可用，但完全斷網且尚未載入網站時，不保證可以第一次啟動。
 
@@ -152,6 +189,12 @@ tests/              瀏覽器完整流程與額外 live smoke
 ## 新番篩選與分頁
 
 本季與未來新番可依播出形式（TV、劇場版、OVA、ONA、特別篇）及題材篩選。列表顯示總筆數與總頁數，支援首末頁、上一頁／下一頁及直接輸入頁碼；變更條件會回到第一頁。篩選由 API 對完整結果執行，Bangumi 備援使用分類標籤，分類可能與 Jikan 不同。
+
+## 我的動畫：批次狀態與舊番整理
+
+選擇「新舊番範圍 → 本季以前」可排除本季及未來新番，再按「選取篩選結果」，選擇想看、觀看中、已看完、暫停或棄番，按「套用觀看狀態」。也支援非今年、非本季、今年以前、本季新番及日期未定；非今年／非本季包含未來日期，日期不明者不會被猜作舊番。判斷使用首播年份／季度，不代表作品已播畢。
+
+批次套用會先顯示確認摘要。已看完會填滿已知總集數，總集數未定則保留集數，首次標記完成記為今天；其他狀態保留進度並清除完成日期。評分、備註、平台與最近觀看時間不變。切換篩選清除勾選，操作以單一 IndexedDB 交易保存。
 
 ## 歷年動畫
 
