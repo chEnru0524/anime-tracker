@@ -60,7 +60,7 @@ test("email login, cloud preview, restore, conflict protection and responsive ac
     .fill("sb_publishable_fixture");
   await page.getByRole("button", { name: "儲存連線設定" }).click();
   await page.getByLabel("Email", { exact: true }).fill(user.email);
-  await page.getByRole("button", { name: "寄送登入驗證碼" }).click();
+  await page.getByRole("button", { name: "寄送登入郵件" }).click();
   await expect(page.getByRole("status")).toContainText("驗證郵件已寄出");
   await page.getByLabel("驗證碼", { exact: true }).fill("123456");
   await page.getByRole("button", { name: "驗證並登入" }).click();
@@ -86,7 +86,58 @@ test("email login, cloud preview, restore, conflict protection and responsive ac
   }
   await page.getByRole("button", { name: "登出", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "寄送登入驗證碼" }),
+    page.getByRole("button", { name: "寄送登入郵件" }),
   ).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test("PKCE email link returns to account route and exchanges the code once", async ({
+  page,
+}) => {
+  let exchanges = 0;
+  await page.route("https://fixture.supabase.co/**", async (route) => {
+    if (route.request().url().includes("/otp")) {
+      expect(route.request().postDataJSON().code_challenge_method).toBe("s256");
+      return route.fulfill({ json: {} });
+    }
+    if (route.request().url().includes("/token")) {
+      exchanges++;
+      expect(route.request().postDataJSON().auth_code).toBe("fixture-code");
+      expect(
+        route.request().postDataJSON().code_verifier.length,
+      ).toBeGreaterThan(30);
+      return route.fulfill({
+        json: {
+          access_token: "fixture-token",
+          refresh_token: "fixture-refresh",
+          token_type: "bearer",
+          expires_in: 3600,
+          user: {
+            id: "00000000-0000-0000-0000-000000000001",
+            email: "fixture@example.com",
+            aud: "authenticated",
+            created_at: "2026-01-01T00:00:00Z",
+          },
+        },
+      });
+    }
+    return route.abort();
+  });
+  await page.goto("/#/account");
+  await page
+    .getByLabel("Project URL", { exact: true })
+    .fill("https://fixture.supabase.co");
+  await page
+    .getByLabel("Publishable key", { exact: true })
+    .fill("sb_publishable_fixture");
+  await page.getByRole("button", { name: "儲存連線設定" }).click();
+  await page.getByLabel("Email", { exact: true }).fill("fixture@example.com");
+  await page.getByRole("button", { name: "寄送登入郵件" }).click();
+  await expect(page.getByRole("status")).toContainText("驗證郵件已寄出");
+  await page.goto("/?code=fixture-code");
+  await expect(
+    page.getByRole("button", { name: "讀取雲端摘要" }),
+  ).toBeVisible();
+  expect(exchanges).toBe(1);
+  await expect(page).toHaveURL(/\/#\/account$/);
 });
