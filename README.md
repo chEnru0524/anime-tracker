@@ -4,13 +4,13 @@
 
 ## 帳號與跨裝置紀錄
 
-頁面：`#/account`。使用 Email 一次性驗證碼登入。此版本採「手動上傳／載入」，不會背景覆蓋收藏。所有裝置使用同一 Supabase 專案與相同 Email。
+頁面：`#/account`。使用 Email 登入連結（或郵件提供的一次性驗證碼）登入。此版本採「手動上傳／載入」，不會背景覆蓋收藏。所有裝置使用同一 Supabase 專案與相同 Email。
 
 ### 管理者一次性設定
 
 1. 建立託管 [Supabase 專案](https://supabase.com/dashboard)，資料庫密碼只在 Supabase 自行設定，不放到此網站或 Repository。
 2. 在 SQL Editor 執行根目錄 [supabase.sql](./supabase.sql)。它建立私人備份表、RLS 及帶版本檢查的寫入函式；未登入無存取權，登入者只能讀寫自己的資料。請勿關閉 RLS。
-3. Authentication → Email Templates：將 Magic Link 與 Confirm signup 範本加入 `<p>你的夜番登入驗證碼：{{ .Token }}</p>`。保留 Email 驗證，不使用自動確認。使用驗證碼避免 HashRouter 與登入連結片段衝突。
+3. Authentication → URL Configuration：將 Site URL 設為完整 Pages 網址（此專案為 `https://chenru0524.github.io/anime-tracker/`）。保留 Email 驗證，預設郵件登入連結即可使用，不需修改範本。使用 PKCE 驗證並導回帳號頁，請在發起寄信的同一裝置與瀏覽器開啟最新連結；換裝置應重新寄信。若自訂 SMTP 範本提供 `{{ .Token }}`，也支援輸入驗證碼。
 4. Supabase 預設寄信只支援專案團隊成員的 Email，且寄信次數受限；正式使用請設定自訂 SMTP。SMTP 密碼只放 Supabase，**不放前端或 GitHub**。[官方寄信限制與設定](https://supabase.com/docs/guides/auth/auth-smtp)。
 5. 取得 Project URL 與 `sb_publishable_…` Publishable key。在 GitHub Repository → Settings → Secrets and variables → Actions → Variables 新增 `VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`，重新執行部署後每台裝置自動使用相同專案。這兩項是公開識別設定；**絕對不可使用 secret / service_role key**。
 6. 也可先在網站「首次連接雲端」填入這兩項設定（僅存該瀏覽器，各裝置需各填一次）。本機開發則複製 `.env.example` 至 `.env.local`。
@@ -25,7 +25,7 @@
 - 登入 Session 由 Supabase SDK 存此瀏覽器，登出清除該 Session；本機收藏仍保留。共用電腦不要留下自己的本機收藏。不同帳號之間不會自動上傳本機紀錄。
 - 雲端不可用時不影響 IndexedDB 收藏；個人 JSON 備份仍可使用。雲端尚未設定時不宣稱已同步；部署程式不會自行建立 Supabase 專案。
 
-技術文件：[Email OTP](https://supabase.com/docs/guides/auth/auth-email-passwordless)、[RLS](https://supabase.com/docs/guides/database/postgres/row-level-security)、[Publishable keys](https://supabase.com/docs/guides/getting-started/api-keys)。
+技術文件：[PKCE 登入連結](https://supabase.com/docs/guides/auth/sessions/pkce-flow)、[Email OTP](https://supabase.com/docs/guides/auth/auth-email-passwordless)、[RLS](https://supabase.com/docs/guides/database/postgres/row-level-security)、[Publishable keys](https://supabase.com/docs/guides/getting-started/api-keys)。
 
 ## 台灣播放平台與資料來源研究
 

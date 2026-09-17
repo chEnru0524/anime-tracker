@@ -7,7 +7,9 @@
 - 雲端測試：僅接受公開 publishable key / Supabase HTTPS、移除擴充功能連線設定、舊版本衝突拒絕。
 - PGlite 執行實際 supabase.sql：不同帳號隔離、匿名讀寫拒絕、繞過 RPC 直接 UPDATE 拒絕、版本衝突拒絕。使用合成 auth.uid，不需要 Docker。
 - Playwright 合成 Supabase 回應：Email OTP、登入、摘要、預覽還原、版本衝突、登出、360/768/1440px 無水平溢出、無 pageerror。測試未寄真實郵件，也沒有使用私人紀錄。
-- 尚需專案持有人完成 Supabase 設定後驗證真實郵件送達、正式 RLS 部署與兩台裝置存取；目前沒有取得正式專案 URL / Publishable key，不宣稱雲端已上線。
+- PKCE 瀏覽器測試：登入郵件產生 S256 challenge，登入連結回到帳號頁，授權碼僅交換一次並從網址移除。
+- 正式 Supabase 已套用 supabase.sql；唯讀 SQL 確認 RLS 啟用、匿名無讀取權、登入者可讀、禁止直接 UPDATE、版本檢查函式存在。GitHub 公開建置變數與 Supabase Site URL 已設定。
+- 真實郵件送達及使用者兩台裝置的私人紀錄上傳／載入，仍待持有人登入驗證；合成測試不代表已驗證真實郵件。
 
 驗證日期：2026-09-15。環境：Windows、Node 24.11、Chromium 153。
 
